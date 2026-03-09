@@ -36,7 +36,7 @@ CREATE TABLE expedicao_cidades (
 ALTER TABLE expedicao_diaria  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expedicao_cidades ENABLE ROW LEVEL SECURITY;
 """
-# atualizado
+
 import os
 import streamlit as st
 from supabase import create_client, Client
@@ -48,6 +48,13 @@ from datetime import date, timedelta
 def get_supabase() -> Client:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+@st.cache_resource
+def get_supabase_admin() -> Client:
+    """Cliente com service_role key para operacoes admin (invite, etc)."""
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets.get("SUPABASE_SERVICE_KEY", st.secrets["SUPABASE_KEY"])
     return create_client(url, key)
 
 # ══════════════════════════════════════════════════════════════
@@ -348,31 +355,38 @@ def listar_solicitacoes(status: str = "pendente") -> list:
         return []
 
 def aprovar_solicitacao(sol_id: int, email: str, nome: str,
-                         regiao: str, role: str = "viewer") -> tuple:
+                         regiao: str = "", role: str = "viewer") -> tuple:
     """
-    Aprova solicitação: cria usuário no Supabase Auth + insere em usuarios.
+    Aprova solicitacao: cria usuario no Supabase Auth + insere em usuarios.
     Retorna (ok, erro)
     """
     try:
-        sb = get_supabase()
-        # Atualiza status da solicitação
+        sb       = get_supabase()
+        sb_admin = get_supabase_admin()
+
+        # Atualiza status da solicitacao
         sb.table("solicitacoes_acesso").update(
             {"status": "aprovado"}
         ).eq("id", sol_id).execute()
 
-        # Insere na tabela usuarios (o usuário cria a própria senha pelo email)
-        regioes = ([regiao.lower()] if regiao.lower() not in ["todas", "todas as regiões", ""]
-                   else ["capital", "metropolitan", "countryside"])
+        # Insere na tabela usuarios (sem bases — admin configura depois)
         sb.table("usuarios").upsert({
-            "email":   email,
-            "nome":    nome,
-            "role":    role,
-            "regioes": regioes,
-            "ativo":   True,
+            "email": email,
+            "nome":  nome,
+            "role":  role,
+            "bases": [],
+            "ativo": True,
         }, on_conflict="email").execute()
 
-        # Dispara convite por email via Supabase Auth
-        sb.auth.admin.invite_user_by_email(email)
+        # Dispara convite por email via Supabase Auth (requer service_role key)
+        try:
+            sb_admin.auth.admin.invite_user_by_email(email)
+        except Exception as email_err:
+            # Se falhar o invite, ainda retorna sucesso (usuario foi criado)
+            # Admin pode reenviar manualmente pelo Supabase
+            import logging
+            logging.warning(f"Invite email falhou para {email}: {email_err}")
+
         return True, None
     except Exception as e:
         return False, str(e)
