@@ -128,6 +128,7 @@ def ler_periodo(data_ini: date, data_fim: date, bases: list = None) -> pd.DataFr
     res = q.execute()
     return pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
+@st.cache_data(ttl=300)
 def ler_cidades_dia(data_ref: date, bases: list = None) -> pd.DataFrame:
     sb = get_supabase()
     q = sb.table("expedicao_cidades").select("*").eq("data_ref", str(data_ref))
@@ -153,6 +154,20 @@ def invalidar_cache():
     ler_dia.clear()
     ler_periodo.clear()
     ler_datas_disponiveis.clear()
+    ler_cidades_dia.clear()
+
+def invalidar_cache_config():
+    """Limpa cache de configurações (supervisores/metas) após edição."""
+    try: carregar_supervisores.clear()
+    except Exception: pass
+    try: tem_supervisores.clear()
+    except Exception: pass
+    try: carregar_metas.clear()
+    except Exception: pass
+    try: tem_metas.clear()
+    except Exception: pass
+    try: listar_bases_disponiveis.clear()
+    except Exception: pass
 
 
 # ══════════════════════════════════════════════════════════════
@@ -199,6 +214,7 @@ def salvar_supervisores(df: pd.DataFrame, usuario: str):
             rows, on_conflict="sigla"
         ).execute()
 
+@st.cache_data(ttl=3600)
 def carregar_supervisores() -> pd.DataFrame:
     """Lê supervisores do Supabase e retorna DataFrame com SIGLA e REGION."""
     sb = get_supabase()
@@ -209,6 +225,7 @@ def carregar_supervisores() -> pd.DataFrame:
     df.columns = ["SIGLA", "REGION"]
     return df
 
+@st.cache_data(ttl=3600)
 def tem_supervisores() -> bool:
     """Retorna True se já há supervisores salvos no banco."""
     sb = get_supabase()
@@ -234,6 +251,7 @@ def salvar_metas(df: pd.DataFrame, usuario: str):
             rows, on_conflict="ds"
         ).execute()
 
+@st.cache_data(ttl=3600)
 def carregar_metas() -> pd.DataFrame:
     """Lê metas do Supabase e retorna DataFrame com DS e Meta."""
     sb = get_supabase()
@@ -244,6 +262,57 @@ def carregar_metas() -> pd.DataFrame:
     df.columns = ["DS", "Meta"]
     return df
 
+@st.cache_data(ttl=60)
+def carregar_metas_completo() -> pd.DataFrame:
+    """Lê metas com metadados (quem editou, quando)."""
+    sb = get_supabase()
+    res = sb.table("config_metas").select("ds,meta,atualizado_por,atualizado_em").execute()
+    if not res.data:
+        return pd.DataFrame(columns=["DS","Meta (%)","Editado por","Atualizado em"])
+    df = pd.DataFrame(res.data)
+    df["meta"] = (df["meta"] * 100).round(1)
+    df["atualizado_em"] = pd.to_datetime(df["atualizado_em"], errors="coerce").dt.strftime("%d/%m %H:%M")
+    df.columns = ["DS","Meta (%)","Editado por","Atualizado em"]
+    return df.sort_values("DS")
+
+def upsert_meta_ds(ds: str, meta_pct: float, usuario: str) -> tuple[bool, str]:
+    """Salva meta de um DS específico. meta_pct em % (ex: 75 = 75%)."""
+    try:
+        sb = get_supabase()
+        sb.table("config_metas").upsert(
+            {"ds": ds.strip().upper(), "meta": round(meta_pct / 100, 4),
+             "atualizado_por": usuario},
+            on_conflict="ds"
+        ).execute()
+        try: carregar_metas.clear()
+        except: pass
+        try: carregar_metas_completo.clear()
+        except: pass
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+def upsert_metas_bulk(rows: list[dict], usuario: str) -> tuple[bool, str]:
+    """Salva múltiplas metas de uma vez. rows = [{'ds':..,'meta_pct':..}]"""
+    try:
+        sb = get_supabase()
+        payload = [
+            {"ds": r["ds"].strip().upper(),
+             "meta": round(r["meta_pct"] / 100, 4),
+             "atualizado_por": usuario}
+            for r in rows if r.get("ds")
+        ]
+        if payload:
+            sb.table("config_metas").upsert(payload, on_conflict="ds").execute()
+        try: carregar_metas.clear()
+        except: pass
+        try: carregar_metas_completo.clear()
+        except: pass
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+@st.cache_data(ttl=3600)
 def tem_metas() -> bool:
     """Retorna True se já há metas salvas no banco."""
     sb = get_supabase()
@@ -327,6 +396,7 @@ def listar_usuarios() -> list:
         return []
 
 
+@st.cache_data(ttl=600)
 def listar_bases_disponiveis() -> list:
     """Retorna todas as DS cadastradas no banco (para o admin atribuir)."""
     try:

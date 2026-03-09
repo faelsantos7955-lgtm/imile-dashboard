@@ -19,10 +19,12 @@ from database import (
     ler_cidades_dia, ler_datas_disponiveis,
     salvar_supervisores, carregar_supervisores, tem_supervisores,
     salvar_metas, carregar_metas, tem_metas,
+    carregar_metas_completo, upsert_meta_ds, upsert_metas_bulk,
     get_supabase, invalidar_cache,
     listar_solicitacoes, aprovar_solicitacao, rejeitar_solicitacao, listar_usuarios,
     listar_bases_disponiveis, atualizar_bases_usuario,
     get_motoristas_status, upsert_motorista_status, listar_motoristas_inativos,
+    invalidar_cache_config,
 )
 from excel_export import exportar_excel_bytes
 from modulos import triagem as mod_triagem
@@ -278,28 +280,81 @@ if pagina == "📊 Dashboard":
         use_container_width=True, hide_index=True
     )
 
-    # ── Meta editável (só admin) ──────────────────────────────
+    # ── Meta dinâmica por DS (só admin) ───────────────────────
     if is_admin:
-        with st.expander("🎯 Editar Meta por DS"):
-            st.caption("Altere a meta de uma base específica. A mudança vale para os próximos processamentos.")
-            col_ds_edit, col_meta_edit, col_btn = st.columns([2, 1, 1])
-            with col_ds_edit:
-                ds_edit = st.selectbox("DS", sorted(df_dia["scan_station"].unique()), key="ds_edit")
-            with col_meta_edit:
-                meta_atual = float(df_dia[df_dia["scan_station"]==ds_edit]["meta"].iloc[0])
-                nova_meta  = st.number_input("Nova Meta (%)", min_value=0, max_value=100,
-                                              value=int(meta_atual*100), step=1, key="meta_edit")
-            with col_btn:
+        with st.expander("🎯 Metas por DS", expanded=False):
+            st.caption("Configure a meta individual de cada base. As mudanças valem para os próximos processamentos.")
+
+            df_metas_db = carregar_metas_completo()
+            # Monta tabela com todas as DS do dia + metas salvas
+            ds_hoje = sorted(df_dia["scan_station"].unique().tolist())
+            meta_map = {}
+            if len(df_metas_db) > 0:
+                meta_map = df_metas_db.set_index("DS")["Meta (%)"].to_dict()
+
+            # ── Editor rápido — uma DS por vez ────────────────
+            st.markdown("**Edição rápida**")
+            ce1, ce2, ce3 = st.columns([2, 1, 1])
+            with ce1:
+                ds_edit = st.selectbox("Base (DS)", ds_hoje, key="ds_meta_sel")
+            with ce2:
+                meta_atual = meta_map.get(ds_edit, 50.0)
+                nova_meta  = st.number_input("Meta (%)", min_value=1, max_value=100,
+                                              value=int(meta_atual), step=1, key="meta_edit_v2")
+            with ce3:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                if st.button("💾 Salvar", key="btn_salvar_meta"):
-                    sb = get_supabase()
-                    sb.table("config_metas").upsert(
-                        {"ds": ds_edit, "meta": nova_meta/100,
-                         "atualizado_por": usuario},
-                        on_conflict="ds"
-                    ).execute()
-                    st.success(f"Meta de **{ds_edit}** atualizada para **{nova_meta}%**!")
-                    st.rerun()
+                if st.button("💾 Salvar", key="btn_meta_rapido"):
+                    ok, err = upsert_meta_ds(ds_edit, float(nova_meta), usuario)
+                    if ok:
+                        st.success(f"✅ Meta de **{ds_edit}** → **{nova_meta}%**")
+                        st.rerun()
+                    else:
+                        st.error(f"Erro: {err}")
+
+            st.divider()
+
+            # ── Tabela completa editável ───────────────────────
+            st.markdown("**Todas as metas salvas**")
+            if len(df_metas_db) > 0:
+                # Mostra tabela com st.data_editor para edição em massa
+                df_edit = df_metas_db[["DS","Meta (%)"]].copy()
+                df_edit["Meta (%)"] = df_edit["Meta (%)"].astype(float)
+                edited = st.data_editor(
+                    df_edit,
+                    column_config={
+                        "DS":       st.column_config.TextColumn("Base", disabled=True),
+                        "Meta (%)": st.column_config.NumberColumn(
+                            "Meta (%)", min_value=1, max_value=100,
+                            step=1, format="%d%%"
+                        ),
+                    },
+                    hide_index=True,
+                    use_container_width=True,
+                    key="editor_metas_bulk",
+                )
+                if st.button("💾 Salvar todas", key="btn_meta_bulk"):
+                    rows = [{"ds": row["DS"], "meta_pct": row["Meta (%)"]}
+                            for _, row in edited.iterrows()]
+                    ok, err = upsert_metas_bulk(rows, usuario)
+                    if ok:
+                        st.success(f"✅ {len(rows)} metas atualizadas!")
+                        st.rerun()
+                    else:
+                        st.error(f"Erro: {err}")
+
+                # Resumo visual
+                st.divider()
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Total configuradas", len(df_metas_db))
+                c2.metric("Meta mais alta", f"{df_metas_db['Meta (%)'].max():.0f}%")
+                c3.metric("Meta mais baixa", f"{df_metas_db['Meta (%)'].min():.0f}%")
+
+                st.caption("🕐 Última edição: " +
+                    df_metas_db.sort_values("Atualizado em", ascending=False)
+                    .iloc[0][["Editado por","Atualizado em"]]
+                    .to_list().__str__().strip("[]").replace("'",""))
+            else:
+                st.info("Nenhuma meta configurada ainda. Use a edição rápida acima ou suba um arquivo Excel em Upload / Processar.")
 
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA: UPLOAD / PROCESSAR
