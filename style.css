@@ -1,0 +1,279 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, [class*="css"], .stApp {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  background-color: #f0f2f6 !important;
+  color: #1a1f2e !important;
+}
+
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding-top: 0 !important; max-width: 100% !important; }
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+  background: #1a1f2e !important;
+  border-right: none !important;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+}
+section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
+section[data-testid="stSidebar"] .stRadio label {
+  padding: 10px 16px !important;
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+section[data-testid="stSidebar"] .stRadio label:hover {
+  background: rgba(255,255,255,0.08) !important;
+}
+
+/* ── App Header ───────────────────────────────────────────── */
+.app-header {
+  background: linear-gradient(135deg, #1a1f2e 0%, #2d3561 100%);
+  padding: 28px 40px 24px;
+  margin: -4rem -4rem 2rem -4rem;
+  display: flex; align-items: center; gap: 18px;
+  box-shadow: 0 4px 20px rgba(26,31,46,0.2);
+}
+.app-header-icon { font-size: 38px; line-height: 1; }
+.app-header h1 {
+  font-size: 22px !important; font-weight: 800 !important;
+  color: #ffffff !important; margin: 0 !important; letter-spacing: -0.3px;
+}
+.app-header p { font-size: 13px; color: #94a3b8; margin: 3px 0 0; }
+
+/* ── Section Label ────────────────────────────────────────── */
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.8px;
+  text-transform: uppercase; color: #64748b;
+  margin: 24px 0 14px; display: flex; align-items: center; gap: 12px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+
+/* ── Upload labels ────────────────────────────────────────── */
+.upload-label {
+  font-size: 13px; font-weight: 600; color: #1a1f2e;
+  margin-bottom: 3px; display: flex; align-items: center; gap: 8px;
+}
+.upload-hint {
+  font-size: 11px; color: #94a3b8;
+  font-family: 'JetBrains Mono', monospace; margin-bottom: 8px;
+}
+.badge-r {
+  font-size: 9px; font-weight: 700; padding: 2px 8px;
+  border-radius: 20px; background: #eff6ff; color: #2563eb;
+  letter-spacing: 0.5px; border: 1px solid #bfdbfe;
+}
+.badge-o {
+  font-size: 9px; font-weight: 700; padding: 2px 8px;
+  border-radius: 20px; background: #f0fdf4; color: #16a34a;
+  letter-spacing: 0.5px; border: 1px solid #bbf7d0;
+}
+
+/* ── File Uploader ────────────────────────────────────────── */
+[data-testid="stFileUploader"] {
+  background: #ffffff !important;
+  border: 2px dashed #e2e8f0 !important;
+  border-radius: 12px !important;
+  transition: border-color 0.2s !important;
+}
+[data-testid="stFileUploader"]:hover { border-color: #2563eb !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] p {
+  color: #94a3b8 !important; font-size: 13px !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] small {
+  color: #cbd5e1 !important; font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+/* ── Status row ───────────────────────────────────────────── */
+.status-row {
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 12px 20px; margin: 14px 0 20px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  display: flex; gap: 24px; flex-wrap: wrap; align-items: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.s-ok   { color: #16a34a; font-weight: 600; }
+.s-wait { color: #cbd5e1; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.stButton > button {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #fff !important; font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important; font-size: 14px !important;
+  border: none !important; border-radius: 10px !important;
+  padding: 13px 28px !important;
+  box-shadow: 0 4px 16px rgba(37,99,235,.3) !important;
+  transition: all 0.2s !important; letter-spacing: 0.2px !important;
+}
+.stButton > button:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+  box-shadow: 0 6px 24px rgba(37,99,235,.45) !important;
+  transform: translateY(-1px) !important;
+}
+.stButton > button:disabled {
+  background: #e2e8f0 !important; color: #94a3b8 !important;
+  box-shadow: none !important; transform: none !important;
+}
+
+[data-testid="stDownloadButton"] > button {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  color: #fff !important; font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important; font-size: 15px !important;
+  border: none !important; border-radius: 12px !important;
+  padding: 16px 32px !important;
+  box-shadow: 0 4px 20px rgba(5,150,105,.3) !important;
+  transition: all 0.2s !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+  background: linear-gradient(135deg, #047857, #065f46) !important;
+  box-shadow: 0 6px 28px rgba(5,150,105,.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ── Progress bar ─────────────────────────────────────────── */
+[data-testid="stProgressBar"] > div > div {
+  background: linear-gradient(90deg, #2563eb, #60a5fa) !important;
+  border-radius: 8px !important;
+}
+[data-testid="stProgressBar"] {
+  background: #e2e8f0 !important; border-radius: 8px !important; height:8px !important;
+}
+
+/* ── Alerts ───────────────────────────────────────────────── */
+[data-testid="stAlert"] {
+  border-radius: 10px !important; font-size: 14px !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* ── KPI Grid ─────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 16px; margin: 20px 0 28px;
+}
+.kpi-card {
+  background: #ffffff; border: 1px solid #e2e8f0;
+  border-radius: 14px; padding: 22px 18px;
+  text-align: center; position: relative; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+}
+.kpi-card.c1::before { background: #2563eb; }
+.kpi-card.c2::before { background: #f97316; }
+.kpi-card.c3::before { background: #8b5cf6; }
+.kpi-card.c4::before { background: #10b981; }
+.kpi-card.c5::before { background: #ef4444; }
+
+.kpi-lbl {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+  text-transform: uppercase; color: #94a3b8; margin-bottom: 10px;
+}
+.kpi-val {
+  font-size: 32px; font-weight: 800; color: #1a1f2e; line-height: 1;
+  margin-bottom: 6px; font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -1px;
+}
+.kpi-sub { font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; }
+
+/* ── Region table ─────────────────────────────────────────── */
+.reg-table {
+  width: 100%; border-collapse: collapse; font-size: 14px;
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.reg-table thead tr { background: #1a1f2e; }
+.reg-table th {
+  padding: 14px 20px; text-align: left; font-size: 10px; font-weight: 700;
+  letter-spacing: 1.4px; text-transform: uppercase; color: #94a3b8;
+  border: none;
+}
+.reg-table td {
+  padding: 14px 20px; border-bottom: 1px solid #f1f5f9;
+  color: #475569; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  background: #ffffff;
+}
+.reg-table tbody tr:last-child td { border-bottom: none; }
+.reg-table tbody tr:hover td { background: #f8fafc; }
+.reg-table td:first-child {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+  color: #1a1f2e; font-size: 14px;
+}
+.pill {
+  display: inline-block; padding: 4px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+.pill.ok  { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.pill.bad { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+
+/* ── Delta comparativo ────────────────────────────────────── */
+.delta-row {
+  display: flex; gap: 28px; margin: -4px 0 22px; flex-wrap: wrap;
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 12px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.delta-item { font-size: 13px; color: #64748b; }
+.delta-up   { color: #16a34a; font-weight: 700; }
+.delta-down { color: #dc2626; font-weight: 700; }
+
+/* ── Streamlit dataframe ──────────────────────────────────── */
+[data-testid="stDataFrame"] {
+  border-radius: 12px !important; overflow: hidden !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06) !important;
+}
+
+/* ── Selectbox / inputs ───────────────────────────────────── */
+[data-testid="stSelectbox"] > div, [data-testid="stMultiSelect"] > div {
+  background: #ffffff !important; border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.stSelectbox label, .stMultiSelect label, .stDateInput label,
+.stRadio label { color: #475569 !important; font-size: 13px !important; font-weight: 500 !important; }
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+[data-testid="stTabs"] [role="tablist"] {
+  background: #ffffff; border-radius: 10px; padding: 4px;
+  border: 1px solid #e2e8f0; gap: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+[data-testid="stTabs"] [role="tab"] {
+  border-radius: 8px !important; font-weight: 600 !important;
+  font-size: 13px !important; color: #64748b !important;
+  padding: 8px 18px !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+  background: #1a1f2e !important; color: #ffffff !important;
+}
+
+/* ── Metrics (st.metric) ──────────────────────────────────── */
+[data-testid="stMetric"] {
+  background: #ffffff; border: 1px solid #e2e8f0;
+  border-radius: 12px; padding: 16px 20px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+[data-testid="stMetricLabel"] { color: #64748b !important; font-size: 12px !important; font-weight: 600 !important; }
+[data-testid="stMetricValue"] { color: #1a1f2e !important; font-weight: 800 !important; }
+
+/* ── Divider ──────────────────────────────────────────────── */
+hr { border-color: #e2e8f0 !important; margin: 24px 0 !important; }
+
+/* ── Spinner ──────────────────────────────────────────────── */
+[data-testid="stSpinner"] { color: #2563eb !important; }
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
