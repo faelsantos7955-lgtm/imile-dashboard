@@ -23,6 +23,8 @@ from database import (
     get_supabase, invalidar_cache,
     listar_solicitacoes, aprovar_solicitacao, rejeitar_solicitacao, listar_usuarios,
     listar_bases_disponiveis, atualizar_bases_usuario,
+    PAGINAS_DISPONIVEIS, PAGINAS_POR_PERFIL,
+    atualizar_permissoes_usuario, get_paginas_usuario,
     get_motoristas_status, upsert_motorista_status, listar_motoristas_inativos,
     invalidar_cache_config,
 )
@@ -78,7 +80,14 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.divider()
 
-    _paginas = ["📊 Dashboard", "📤 Upload / Processar", "📅 Histórico", "📈 Comparativos", "🔀 Triagem DC×DS", "📋 Reclamações"]
+    # Páginas liberadas para o usuário
+    if is_admin:
+        _paginas = list(PAGINAS_DISPONIVEIS)
+    else:
+        _user_id = st.session_state.get("user_id", "")
+        _role    = st.session_state.get("user_role", "viewer")
+        _paginas = get_paginas_usuario(_user_id, _role)
+
     if is_admin:
         _paginas.append("👥 Solicitações de Acesso")
         _paginas.append("⚙️ Configurações")
@@ -874,16 +883,107 @@ elif pagina == "👥 Solicitações de Acesso":
 
     with tab_users:
         users = listar_usuarios()
-        if users:
-            df_users = pd.DataFrame(users)
-            cols = [c for c in ["nome","email","role","regioes","ativo"] if c in df_users.columns]
-            df_users = df_users[cols].copy()
-            rename = {"nome":"Nome","email":"Email","role":"Permissão",
-                      "regioes":"Regiões","ativo":"Ativo"}
-            df_users = df_users.rename(columns={k:v for k,v in rename.items() if k in df_users.columns})
-            st.dataframe(df_users, use_container_width=True, hide_index=True)
-        else:
+        if not users:
             st.info("Nenhum usuário cadastrado ainda.")
+        else:
+            bases_disp = listar_bases_disponiveis()
+
+            ROLES = ["viewer", "operador", "supervisor", "admin"]
+            ROLE_LABELS = {
+                "viewer":     "👁️ Viewer — só Dashboard e Histórico",
+                "operador":   "🔧 Operador — Dashboard, Triagem, Upload",
+                "supervisor": "📋 Supervisor — Dashboard, Histórico, Comparativos, Reclamações",
+                "admin":      "🔑 Admin — acesso total",
+            }
+
+            for u in users:
+                uid          = u.get("id","")
+                nome         = u.get("nome","") or u.get("email","")
+                email        = u.get("email","")
+                role         = u.get("role","viewer")
+                bases_atuais = u.get("bases") or []
+                pags_atuais  = u.get("paginas") or []
+                ativo        = u.get("ativo", True)
+
+                badge = "🟢" if ativo else "🔴"
+                with st.expander(f"{badge} **{nome}** · {email} · `{role}`"):
+
+                    # ── Perfil base ───────────────────────────
+                    st.markdown("**Perfil de acesso**")
+                    novo_role = st.selectbox(
+                        "Perfil",
+                        ROLES,
+                        index=ROLES.index(role) if role in ROLES else 0,
+                        format_func=lambda r: ROLE_LABELS.get(r, r),
+                        key=f"role_{uid}"
+                    )
+
+                    # Páginas padrão do perfil selecionado
+                    pags_perfil = PAGINAS_POR_PERFIL.get(novo_role, PAGINAS_POR_PERFIL["viewer"])
+
+                    st.divider()
+
+                    # ── Páginas ───────────────────────────────
+                    st.markdown("**Páginas liberadas**")
+                    st.caption(f"Perfil `{novo_role}` libera por padrão: {', '.join(pags_perfil)}")
+                    usar_custom_pags = st.checkbox(
+                        "Personalizar páginas (sobrepõe o perfil)",
+                        value=bool(pags_atuais),
+                        key=f"custom_pag_{uid}"
+                    )
+                    if usar_custom_pags:
+                        novas_pags = st.multiselect(
+                            "Páginas visíveis",
+                            options=PAGINAS_DISPONIVEIS,
+                            default=[p for p in pags_atuais if p in PAGINAS_DISPONIVEIS] or pags_perfil,
+                            key=f"pags_{uid}"
+                        )
+                    else:
+                        novas_pags = []  # usa perfil base
+
+                    st.divider()
+
+                    # ── Bases ─────────────────────────────────
+                    st.markdown("**Bases (DS) visíveis**")
+                    acesso_total = st.checkbox(
+                        "Acesso total (todas as bases)",
+                        value=len(bases_atuais) == 0,
+                        key=f"total_{uid}"
+                    )
+                    if not acesso_total:
+                        novas_bases = st.multiselect(
+                            "Bases liberadas",
+                            options=bases_disp,
+                            default=[b for b in bases_atuais if b in bases_disp],
+                            placeholder="Selecione as bases...",
+                            key=f"bases_{uid}"
+                        )
+                    else:
+                        novas_bases = []
+
+                    st.divider()
+
+                    # ── Status ────────────────────────────────
+                    novo_ativo = st.checkbox("Usuário ativo", value=ativo, key=f"ativo_{uid}")
+
+                    if st.button("💾 Salvar permissões", key=f"salvar_{uid}", use_container_width=True):
+                        ok, err = atualizar_permissoes_usuario(
+                            uid,
+                            novas_bases,
+                            novas_pags,
+                            novo_role,
+                            usuario
+                        )
+                        if ok:
+                            try:
+                                get_supabase().table("usuarios").update(
+                                    {"ativo": novo_ativo}
+                                ).eq("id", uid).execute()
+                            except: pass
+                            st.success(f"✅ Permissões de **{nome}** atualizadas!")
+                            st.rerun()
+                        else:
+                            st.error(f"Erro: {err}")
 
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA: CONFIGURAÇÕES (somente admin)
