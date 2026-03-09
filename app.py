@@ -7,6 +7,10 @@ import pandas as pd
 import numpy as np
 from datetime import date, timedelta
 from auth_ui import render_auth, logout as auth_logout
+import time as _time
+from datetime import datetime as _dt
+import plotly.express as px
+from modulos import reclamacoes as mod_reclamacoes
 
 from processing import (
     normalizar_colunas, construir_mapa_sigla, padronizar_scan_station,
@@ -62,9 +66,11 @@ if not render_auth():
 nome         = st.session_state.get("user_nome", "")
 usuario      = st.session_state.get("user_email", "")
 is_admin     = st.session_state.get("user_role", "viewer") == "admin"
-bases_user = st.session_state.get("user_bases") or None
-if bases_user == [] or bases_user == ['all']:
+_bases_raw = st.session_state.get("user_bases") or None
+if _bases_raw == [] or _bases_raw == ["all"] or not _bases_raw:
     bases_user = None  # None = vê tudo (admin)
+else:
+    bases_user = tuple(_bases_raw)  # tuple é hashável para cache
 
 # ══════════════════════════════════════════════════════════════
 #  SIDEBAR
@@ -103,7 +109,6 @@ with st.sidebar:
 #  PÁGINA: DASHBOARD
 # ══════════════════════════════════════════════════════════════
 if pagina == "📊 Dashboard":
-    from datetime import datetime as _dt
     col_hdr, col_refresh = st.columns([4, 1])
     with col_hdr:
         st.markdown("""
@@ -122,10 +127,10 @@ if pagina == "📊 Dashboard":
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Auto-refresh a cada 5 minutos via session state
-    import time as _time
     _agora = _time.time()
     if "next_refresh" not in st.session_state:
         st.session_state["next_refresh"] = _agora + 300
+        st.session_state["ultimo_refresh"] = _dt.now().strftime("%H:%M:%S")
     if _agora >= st.session_state["next_refresh"]:
         invalidar_cache()
         st.session_state["next_refresh"] = _agora + 300
@@ -767,7 +772,6 @@ elif pagina == "📈 Comparativos":
     df_top = df_hist[df_hist["scan_station"].isin(ds_top)].copy()
     df_top["data_ref"] = pd.to_datetime(df_top["data_ref"])
 
-    import plotly.express as px
     fig = px.line(
         df_top.sort_values("data_ref"),
         x="data_ref", y="taxa_exp", color="scan_station",
@@ -793,7 +797,6 @@ elif pagina == "🔀 Triagem DC×DS":
 #  PÁGINA: SOLICITAÇÕES DE ACESSO (somente admin)
 # ══════════════════════════════════════════════════════════════
 elif pagina == "📋 Reclamações":
-    from modulos import reclamacoes as mod_reclamacoes
     mod_reclamacoes.render(is_admin=is_admin)
 
 elif pagina == "👥 Solicitações de Acesso":
@@ -852,6 +855,8 @@ elif pagina == "👥 Solicitações de Acesso":
                                 s["id"], s["email"], s["nome"],
                                 s.get("regiao",""), role_sel)
                             if ok:
+                                listar_solicitacoes.clear()
+                                listar_usuarios.clear()
                                 st.success(f"✅ {s['nome']} aprovado! Email de convite enviado.")
                                 st.rerun()
                             else:
@@ -861,6 +866,7 @@ elif pagina == "👥 Solicitações de Acesso":
                                       use_container_width=True):
                             ok, err = rejeitar_solicitacao(s["id"])
                             if ok:
+                                listar_solicitacoes.clear()
                                 st.warning(f"Solicitação de {s['nome']} rejeitada.")
                                 st.rerun()
                             else:
@@ -968,18 +974,10 @@ elif pagina == "👥 Solicitações de Acesso":
 
                     if st.button("💾 Salvar permissões", key=f"salvar_{uid}", use_container_width=True):
                         ok, err = atualizar_permissoes_usuario(
-                            uid,
-                            novas_bases,
-                            novas_pags,
-                            novo_role,
-                            usuario
+                            uid, novas_bases, novas_pags,
+                            novo_role, usuario, novo_ativo
                         )
                         if ok:
-                            try:
-                                get_supabase().table("usuarios").update(
-                                    {"ativo": novo_ativo}
-                                ).eq("id", uid).execute()
-                            except: pass
                             st.success(f"✅ Permissões de **{nome}** atualizadas!")
                             st.rerun()
                         else:

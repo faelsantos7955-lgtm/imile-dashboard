@@ -116,40 +116,44 @@ def _filtrar_regioes(regioes_permitidas: list) -> list:
     return regioes_permitidas  # lista de strings, ex: ["capital","metropolitan"]
 
 @st.cache_data(ttl=300)  # cache 5 minutos
-def ler_dia(data_ref: date, bases: list = None) -> pd.DataFrame:
+def ler_dia(data_ref, bases: tuple = None) -> pd.DataFrame:
+    """bases como tuple para ser hashável no cache."""
     sb = get_supabase()
     q = sb.table("expedicao_diaria").select("*").eq("data_ref", str(data_ref))
     if bases:
-        q = q.in_("scan_station", bases)
+        q = q.in_("scan_station", list(bases))
     res = q.execute()
     return pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
 @st.cache_data(ttl=300)
-def ler_periodo(data_ini: date, data_fim: date, bases: list = None) -> pd.DataFrame:
+def ler_periodo(data_ini, data_fim, bases: tuple = None) -> pd.DataFrame:
+    """bases como tuple para ser hashável no cache."""
     sb = get_supabase()
     q = (sb.table("expedicao_diaria").select("*")
            .gte("data_ref", str(data_ini))
            .lte("data_ref", str(data_fim)))
     if bases:
-        q = q.in_("scan_station", bases)
+        q = q.in_("scan_station", list(bases))
     res = q.execute()
     return pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
 @st.cache_data(ttl=300)
-def ler_cidades_dia(data_ref: date, bases: list = None) -> pd.DataFrame:
+def ler_cidades_dia(data_ref, bases: tuple = None) -> pd.DataFrame:
+    """bases como tuple para ser hashável no cache."""
     sb = get_supabase()
     q = sb.table("expedicao_cidades").select("*").eq("data_ref", str(data_ref))
     if bases:
-        q = q.in_("scan_station", bases)
+        q = q.in_("scan_station", list(bases))
     res = q.execute()
     return pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
 @st.cache_data(ttl=300)
-def ler_datas_disponiveis(bases: list = None) -> list:
+def ler_datas_disponiveis(bases: tuple = None) -> list:
+    """bases como tuple para ser hashável no cache."""
     sb = get_supabase()
     q = sb.table("expedicao_diaria").select("data_ref")
     if bases:
-        q = q.in_("scan_station", bases)
+        q = q.in_("scan_station", list(bases))
     res = q.execute()
     if not res.data:
         return []
@@ -165,16 +169,11 @@ def invalidar_cache():
 
 def invalidar_cache_config():
     """Limpa cache de configurações (supervisores/metas) após edição."""
-    try: carregar_supervisores.clear()
-    except Exception: pass
-    try: tem_supervisores.clear()
-    except Exception: pass
-    try: carregar_metas.clear()
-    except Exception: pass
-    try: tem_metas.clear()
-    except Exception: pass
-    try: listar_bases_disponiveis.clear()
-    except Exception: pass
+    for fn in [carregar_supervisores, tem_supervisores, carregar_metas,
+               tem_metas, listar_bases_disponiveis, listar_usuarios,
+               listar_solicitacoes, get_paginas_usuario]:
+        try: fn.clear()
+        except Exception: pass
 
 
 # ══════════════════════════════════════════════════════════════
@@ -341,8 +340,9 @@ def get_user_meta(user_id: str) -> dict:
     except Exception:
         return {}
 
+@st.cache_data(ttl=60)
 def listar_solicitacoes(status: str = "pendente") -> list:
-    """Lista solicitações de acesso por status."""
+    """Lista solicitações de acesso por status. Cacheado 1 min."""
     try:
         sb  = get_supabase()
         res = (sb.table("solicitacoes_acesso")
@@ -406,7 +406,9 @@ def rejeitar_solicitacao(sol_id: int) -> tuple:
     except Exception as e:
         return False, str(e)
 
+@st.cache_data(ttl=60)
 def listar_usuarios() -> list:
+    """Lista usuários cacheado 1 min."""
     try:
         sb  = get_supabase()
         res = sb.table("usuarios").select("*").order("nome").execute()
@@ -459,22 +461,27 @@ def atualizar_bases_usuario(user_db_id: int, bases: list) -> tuple:
 #  MOTORISTAS STATUS
 # ══════════════════════════════════════════════════════════════
 
-def atualizar_permissoes_usuario(user_db_id: str, bases: list, paginas: list, role: str, usuario: str) -> tuple:
-    """Atualiza bases, páginas liberadas e role de um usuário."""
+def atualizar_permissoes_usuario(user_db_id: str, bases: list, paginas: list, role: str, usuario: str, ativo: bool = True) -> tuple:
+    """Atualiza bases, páginas, role e status ativo de um usuário em uma única query."""
     try:
         sb = get_supabase()
         sb.table("usuarios").update({
-            "bases":   bases,
-            "paginas": paginas,
-            "role":    role,
+            "bases":          bases,
+            "paginas":        paginas,
+            "role":           role,
+            "ativo":          ativo,
             "atualizado_por": usuario,
         }).eq("id", user_db_id).execute()
+        # Invalida cache de páginas do usuário
+        try: get_paginas_usuario.clear()
+        except Exception: pass
         return True, None
     except Exception as e:
         return False, str(e)
 
+@st.cache_data(ttl=120)
 def get_paginas_usuario(user_id: str, role: str) -> list:
-    """Retorna páginas liberadas para o usuário. Se não tiver coluna paginas, usa o perfil."""
+    """Retorna páginas liberadas para o usuário. Cacheado 2 min."""
     try:
         sb  = get_supabase()
         res = sb.table("usuarios").select("paginas,role").eq("id", user_id).execute()
@@ -482,7 +489,6 @@ def get_paginas_usuario(user_id: str, role: str) -> list:
             paginas = res.data[0].get("paginas") or []
             if paginas:
                 return paginas
-        # Fallback: usa perfil base
         return PAGINAS_POR_PERFIL.get(role, PAGINAS_POR_PERFIL["viewer"])
     except Exception:
         return PAGINAS_POR_PERFIL.get(role, PAGINAS_POR_PERFIL["viewer"])
