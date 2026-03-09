@@ -427,6 +427,24 @@ def listar_bases_disponiveis() -> list:
     except Exception:
         return []
 
+# Páginas disponíveis no sistema
+PAGINAS_DISPONIVEIS = [
+    "📊 Dashboard",
+    "📅 Histórico",
+    "📈 Comparativos",
+    "🔀 Triagem DC×DS",
+    "📋 Reclamações",
+    "📤 Upload / Processar",
+]
+
+# Páginas padrão por perfil
+PAGINAS_POR_PERFIL = {
+    "admin":      PAGINAS_DISPONIVEIS,  # tudo
+    "supervisor": ["📊 Dashboard", "📅 Histórico", "📈 Comparativos", "📋 Reclamações"],
+    "operador":   ["📊 Dashboard", "🔀 Triagem DC×DS", "📤 Upload / Processar"],
+    "viewer":     ["📊 Dashboard", "📅 Histórico"],
+}
+
 def atualizar_bases_usuario(user_db_id: int, bases: list) -> tuple:
     """Admin atualiza quais bases o usuário pode ver."""
     try:
@@ -440,6 +458,34 @@ def atualizar_bases_usuario(user_db_id: int, bases: list) -> tuple:
 # ══════════════════════════════════════════════════════════════
 #  MOTORISTAS STATUS
 # ══════════════════════════════════════════════════════════════
+
+def atualizar_permissoes_usuario(user_db_id: str, bases: list, paginas: list, role: str, usuario: str) -> tuple:
+    """Atualiza bases, páginas liberadas e role de um usuário."""
+    try:
+        sb = get_supabase()
+        sb.table("usuarios").update({
+            "bases":   bases,
+            "paginas": paginas,
+            "role":    role,
+            "atualizado_por": usuario,
+        }).eq("id", user_db_id).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def get_paginas_usuario(user_id: str, role: str) -> list:
+    """Retorna páginas liberadas para o usuário. Se não tiver coluna paginas, usa o perfil."""
+    try:
+        sb  = get_supabase()
+        res = sb.table("usuarios").select("paginas,role").eq("id", user_id).execute()
+        if res.data:
+            paginas = res.data[0].get("paginas") or []
+            if paginas:
+                return paginas
+        # Fallback: usa perfil base
+        return PAGINAS_POR_PERFIL.get(role, PAGINAS_POR_PERFIL["viewer"])
+    except Exception:
+        return PAGINAS_POR_PERFIL.get(role, PAGINAS_POR_PERFIL["viewer"])
 
 def get_motoristas_status() -> dict:
     """Retorna dict {id_motorista: ativo} com todos os motoristas cadastrados."""
