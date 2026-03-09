@@ -278,9 +278,23 @@ hr { border-color: #e2e8f0 !important; margin: 24px 0 !important; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+
+/* Força sidebar sempre visível */
+[data-testid="stSidebar"] {
+    transform: none !important;
+    visibility: visible !important;
+    display: block !important;
+    min-width: 240px !important;
+}
+
 /* Esconde botão de recolher sidebar */
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"],
-button[kind="headerNoPadding"] {
+[data-testid="stSidebarCollapsedControl"],
+button[data-testid="stSidebarCollapseButton"],
+section[data-testid="stSidebarCollapsedControl"],
+.stSidebarCollapsedControl {
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
