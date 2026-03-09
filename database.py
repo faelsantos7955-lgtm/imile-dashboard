@@ -36,7 +36,7 @@ CREATE TABLE expedicao_cidades (
 ALTER TABLE expedicao_diaria  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expedicao_cidades ENABLE ROW LEVEL SECURITY;
 """
-
+# atualizado
 import os
 import streamlit as st
 from supabase import create_client, Client
