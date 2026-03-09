@@ -248,12 +248,24 @@ def _gerar_excel(df, r_dc, r_arq, r_sup, r_tipo, top5_ds,
 
     # ── Helper: escreve DataFrame em worksheet openpyxl ──────
     def df_to_ws(ws, df_in, start_row=1):
-        """Escreve DataFrame diretamente em worksheet sem pandas ExcelWriter."""
-        for ci, col in enumerate(df_in.columns, 1):
-            ws.cell(start_row, ci, col)
-        for ri, (_, row) in enumerate(df_in.iterrows(), start=start_row + 1):
-            for ci, val in enumerate(row, 1):
-                ws.cell(ri, ci, val)
+        """Escreve DataFrame em worksheet usando append() — muito mais rápido que iterrows."""
+        import numpy as np
+        # Move para a linha correta se start_row > 1
+        for _ in range(start_row - 1):
+            ws.append([])
+        # Header
+        ws.append(list(df_in.columns))
+        # Dados: converte numpy types para Python nativo
+        for row in df_in.itertuples(index=False, name=None):
+            ws.append([
+                None if (isinstance(v, float) and np.isnan(v))
+                else int(v) if isinstance(v, (np.integer,))
+                else float(v) if isinstance(v, (np.floating,))
+                else bool(v) if isinstance(v, (np.bool_,))
+                else str(v) if not isinstance(v, (int, float, bool, str, type(None)))
+                else v
+                for v in row
+            ])
 
     # ── Aba Por DC ───────────────────────────────────────────
     ws_dc = wb.create_sheet("Por DC")
@@ -276,23 +288,25 @@ def _gerar_excel(df, r_dc, r_arq, r_sup, r_tipo, top5_ds,
                 pass
     auto_w(ws_dc); ws_dc.freeze_panes = "A2"
 
-    # ── Aba Base Consolidada ─────────────────────────────────
+    # ── Aba Base Consolidada (apenas ERROS para economizar memória) ─
     ws_base = wb.create_sheet("Base Consolidada")
-    df_exp  = df.drop(columns=["__BASE_PAI_DST__"], errors="ignore")
+    df_exp  = df[df["OUT BOUND"] != "OK"].drop(columns=["__BASE_PAI_DST__"], errors="ignore").copy()
+    log_cb(f"   📋 {len(df_exp):,} registros com erro/fora abrangência na aba Base Consolidada")
     df_to_ws(ws_base, df_exp, start_row=1)
     fmt_hdr(ws_base)
     try:
         hdrs   = [ws_base.cell(1, ci).value for ci in range(1, ws_base.max_column+1)]
         ob_idx = hdrs.index("OUT BOUND") + 1
-        ok_b   = PatternFill("solid", fgColor="D6F0DC")
         er_b   = PatternFill("solid", fgColor="FFE0E0")
         fa_b   = PatternFill("solid", fgColor="FFF3CD")
-        for row in ws_base.iter_rows(min_row=2):
-            val  = str(row[ob_idx-1].value or "").strip().upper()
-            fill = (ok_b if val == "OK" else er_b if val == "ERRO EXPEDIÇÃO" else
-                    fa_b if val == "FORA ABRANGÊNCIA" else None)
-            if fill:
-                for cell in row: cell.fill = fill
+        # Só colore se < 50k linhas para evitar crash
+        if ws_base.max_row < 50000:
+            for row in ws_base.iter_rows(min_row=2):
+                val  = str(row[ob_idx-1].value or "").strip().upper()
+                fill = (er_b if val == "ERRO EXPEDIÇÃO" else
+                        fa_b if val == "FORA ABRANGÊNCIA" else None)
+                if fill:
+                    for cell in row: cell.fill = fill
     except Exception:
         pass
     auto_w(ws_base)
