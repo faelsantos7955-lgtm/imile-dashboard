@@ -526,10 +526,76 @@ def pagina_esqueci_senha():
                     unsafe_allow_html=True)
 
 
+def _definir_senha(token: str, tipo: str):
+    """Pagina para o usuario definir/redefinir a senha apos clicar no link do email."""
+    _inject_css()
+    mid = _card_col()
+    with mid:
+        b64 = _logo_b64()
+        if b64:
+            st.markdown(
+                f'<div style="text-align:center;margin-bottom:6px">'
+                f'<img src="data:image/png;base64,{b64}" '
+                f'style="height:40px;filter:brightness(0) invert(1)"></div>',
+                unsafe_allow_html=True)
+
+        titulo = "Criar sua senha" if tipo == "invite" else "Nova senha"
+        st.markdown(f'<div class="login-title">{titulo}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="banner-i">🔐 Escolha uma senha segura para acessar o portal.</div>',
+                    unsafe_allow_html=True)
+
+        nova_senha  = st.text_input("Nova senha", type="password", placeholder="Mínimo 6 caracteres", key="ns1")
+        conf_senha  = st.text_input("Confirmar senha", type="password", placeholder="Repita a senha", key="ns2")
+
+        if st.button("Salvar senha →", key="btn_set_pwd", use_container_width=True):
+            if not nova_senha or not conf_senha:
+                st.error("Preencha os dois campos.")
+            elif nova_senha != conf_senha:
+                st.error("As senhas não coincidem.")
+            elif len(nova_senha) < 6:
+                st.error("A senha deve ter pelo menos 6 caracteres.")
+            else:
+                try:
+                    sb = _sb()
+                    # Troca o token pelo session
+                    res = sb.auth.exchange_code_for_session({"token": token, "type": tipo})
+                    if res and res.session:
+                        # Atualiza a senha
+                        sb.auth.update_user({"password": nova_senha})
+                        st.success("✅ Senha definida com sucesso!")
+                        st.session_state["auth_page"] = "login"
+                        st.session_state["auth_msg"] = "Senha criada! Faça login para continuar."
+                        st.session_state["auth_msg_type"] = "ok"
+                        # Limpa token da URL
+                        st.query_params.clear()
+                        st.rerun()
+                    else:
+                        st.error("Link inválido ou expirado. Solicite um novo.")
+                except Exception as e:
+                    err_str = str(e)
+                    if "expired" in err_str.lower() or "invalid" in err_str.lower():
+                        st.error("Link expirado. Solicite um novo link de redefinição.")
+                    else:
+                        st.error(f"Erro: {err_str}")
+
+        st.markdown('<div class="login-footer">© 2025 iMile Delivery · Acesso restrito</div>',
+                    unsafe_allow_html=True)
+
+
 # ── Entrada principal ─────────────────────────────────────────
 def render_auth() -> bool:
     if st.session_state.get("autenticado"):
         return True
+
+    # Detecta token na URL (vindo do link de invite ou reset)
+    params = st.query_params
+    token = params.get("token", "")
+    tipo  = params.get("type", "")
+
+    if token and tipo in ("invite", "recovery", "signup"):
+        _definir_senha(token, tipo)
+        return False
+
     page = st.session_state.get("auth_page", "login")
     if page == "register":   pagina_cadastro()
     elif page == "forgot":   pagina_esqueci_senha()
