@@ -587,7 +587,30 @@ def render_auth() -> bool:
     if st.session_state.get("autenticado"):
         return True
 
-    # Detecta token na URL (vindo do link de invite ou reset)
+    # Injeta JS que lê o hash (#access_token=...&type=recovery)
+    # e redireciona para ?token=...&type=... que o Streamlit consegue ler
+    st.markdown("""
+    <script>
+    (function() {
+        var hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            var params = {};
+            hash.replace('#','').split('&').forEach(function(p) {
+                var kv = p.split('=');
+                params[kv[0]] = decodeURIComponent(kv[1] || '');
+            });
+            if (params['type'] === 'recovery' || params['type'] === 'invite' || params['type'] === 'signup') {
+                var newUrl = window.location.pathname +
+                    '?token=' + encodeURIComponent(params['access_token']) +
+                    '&type=' + encodeURIComponent(params['type']);
+                window.location.replace(newUrl);
+            }
+        }
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
+    # Detecta token nos query params (após redirecionamento do JS acima)
     params = st.query_params
     token = params.get("token", "")
     tipo  = params.get("type", "")
