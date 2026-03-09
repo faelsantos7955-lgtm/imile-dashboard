@@ -357,35 +357,40 @@ def listar_solicitacoes(status: str = "pendente") -> list:
 def aprovar_solicitacao(sol_id: int, email: str, nome: str,
                          regiao: str = "", role: str = "viewer") -> tuple:
     """
-    Aprova solicitacao: cria usuario no Supabase Auth + insere em usuarios.
+    Aprova solicitacao: convida usuario no Auth -> pega ID -> insere em usuarios.
     Retorna (ok, erro)
     """
     try:
         sb       = get_supabase()
         sb_admin = get_supabase_admin()
 
-        # Atualiza status da solicitacao
+        # 1. Atualiza status da solicitacao
         sb.table("solicitacoes_acesso").update(
             {"status": "aprovado"}
         ).eq("id", sol_id).execute()
 
-        # Insere na tabela usuarios (sem bases — admin configura depois)
-        sb.table("usuarios").upsert({
-            "email": email,
-            "nome":  nome,
-            "role":  role,
-            "bases": [],
-            "ativo": True,
-        }, on_conflict="email").execute()
-
-        # Dispara convite por email via Supabase Auth (requer service_role key)
+        # 2. Cria usuario no Auth e dispara email de convite
+        #    Isso gera o ID em auth.users que usuarios.id referencia
         try:
-            sb_admin.auth.admin.invite_user_by_email(email)
-        except Exception as email_err:
-            # Se falhar o invite, ainda retorna sucesso (usuario foi criado)
-            # Admin pode reenviar manualmente pelo Supabase
-            import logging
-            logging.warning(f"Invite email falhou para {email}: {email_err}")
+            invite_res = sb_admin.auth.admin.invite_user_by_email(email)
+            auth_id = invite_res.user.id if invite_res and invite_res.user else None
+        except Exception as invite_err:
+            # Usuario pode ja existir no auth — tenta buscar o ID
+            try:
+                users = sb_admin.auth.admin.list_users()
+                auth_id = next(
+                    (u.id for u in users if u.email and u.email.lower() == email.lower()),
+                    None
+                )
+            except Exception:
+                auth_id = None
+
+        # 3. Insere em usuarios com o ID do auth (se obtido)
+        row = {"email": email, "nome": nome, "role": role, "bases": [], "ativo": True}
+        if auth_id:
+            row["id"] = auth_id
+
+        sb.table("usuarios").upsert(row, on_conflict="email").execute()
 
         return True, None
     except Exception as e:
