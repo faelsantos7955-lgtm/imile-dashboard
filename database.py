@@ -450,8 +450,8 @@ PAGINAS_DISPONIVEIS = [
 # Páginas padrão por perfil
 PAGINAS_POR_PERFIL = {
     "admin":      PAGINAS_DISPONIVEIS,  # tudo
-    "supervisor": ["📊 Dashboard", "📅 Histórico", "📈 Comparativos", "📋 Reclamações"],
-    "operador":   ["📊 Dashboard", "🔀 Triagem DC×DS", "📤 Upload / Processar"],
+    "supervisor": ["📊 Dashboard", "📅 Histórico", "📈 Comparativos", "📋 Reclamações", "🔀 Triagem DC×DS"],
+    "operador":   ["📊 Dashboard", "📅 Histórico", "🔀 Triagem DC×DS"],
     "viewer":     ["📊 Dashboard", "📅 Histórico"],
 }
 

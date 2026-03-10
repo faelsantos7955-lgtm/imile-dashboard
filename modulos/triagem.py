@@ -456,7 +456,83 @@ def _gerar_excel(df, r_dc, r_arq, r_sup, r_tipo, top5_ds,
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA STREAMLIT
 # ══════════════════════════════════════════════════════════════
-def render(usuario: str):
+
+# ══════════════════════════════════════════════════════════════
+#  VIEW: USUÁRIOS COMUNS — lê do banco
+# ══════════════════════════════════════════════════════════════
+def _render_triagem_viewer():
+    import streamlit as st
+    import pandas as pd
+    from database import get_supabase
+
+    sb = get_supabase()
+
+    # Carrega lista de uploads disponíveis
+    uploads = sb.table("triagem_uploads").select("id,data_ref,criado_por,total,qtd_ok,qtd_erro,taxa") \
+                .order("criado_em", desc=True).limit(30).execute().data
+
+    if not uploads:
+        st.info("📭 Nenhum resultado disponível ainda. Aguarde o administrador processar os arquivos.")
+        return
+
+    # Seletor de data
+    opcoes = {f"{u['data_ref']} — {u['qtd_ok']}/{u['total']} OK ({u['taxa']}%)": u["id"] for u in uploads}
+    escolha = st.selectbox("📅 Selecionar processamento", list(opcoes.keys()))
+    upload_id = opcoes[escolha]
+    upload = next(u for u in uploads if u["id"] == upload_id)
+
+    # Métricas
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Expedido", f"{upload['total']:,}")
+    col2.metric("Triagem OK",     f"{upload['qtd_ok']:,}")
+    col3.metric("Erros",          f"{upload['qtd_erro']:,}")
+    col4.metric("Taxa OK",        f"{upload['taxa']}%")
+
+    # Por DS
+    r_ds = sb.table("triagem_por_ds").select("*").eq("upload_id", upload_id).execute().data
+    if r_ds:
+        st.markdown("### 📊 Resultado por DS")
+        df_ds = pd.DataFrame(r_ds).drop(columns=["id","upload_id"], errors="ignore")
+        df_ds.columns = [c.upper() for c in df_ds.columns]
+        st.dataframe(df_ds, width="stretch")
+
+    # Top 5
+    top5 = sb.table("triagem_top5").select("*").eq("upload_id", upload_id).order("total_erros", desc=True).execute().data
+    if top5:
+        st.markdown("### ⚠️ Top 5 DS com mais erros")
+        df_top = pd.DataFrame(top5).drop(columns=["id","upload_id"], errors="ignore")
+        st.dataframe(df_top, width="stretch")
+
+    # Por supervisor
+    r_sup = sb.table("triagem_por_supervisor").select("*").eq("upload_id", upload_id).execute().data
+    if r_sup:
+        st.markdown("### 👥 Resultado por Supervisor")
+        df_sup = pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore")
+        st.dataframe(df_sup, width="stretch")
+
+    # Download Excel
+    if r_ds:
+        import io
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Por DS"
+        df_ds_exp = pd.DataFrame(r_ds).drop(columns=["id","upload_id"], errors="ignore")
+        ws.append(list(df_ds_exp.columns))
+        for row in df_ds_exp.itertuples(index=False):
+            ws.append(list(row))
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        st.download_button(
+            "⬇️ Baixar Excel",
+            data=buf,
+            file_name=f"triagem_{upload['data_ref']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            width="stretch"
+        )
+
+def render(usuario: str, is_admin: bool = False):
     import streamlit as st
 
     st.markdown("""
@@ -465,6 +541,11 @@ def render(usuario: str):
       <div><h1>Triagem Analyzer</h1>
       <p>Análise de Erros de Triagem DC × DS — OUT BOUND</p></div>
     </div>""", unsafe_allow_html=True)
+
+    # Usuários não-admin veem apenas o último resultado do banco
+    if not is_admin:
+        _render_triagem_viewer()
+        return
 
     # ── Uploads ───────────────────────────────────────────────
     st.markdown('<div class="section-label">Arquivos de entrada</div>',
@@ -505,7 +586,7 @@ def render(usuario: str):
     job = st.session_state["triagem_job"]
     rodando = job.get("rodando", False)
 
-    if st.button("▶  EXECUTAR ANÁLISE", disabled=(not pronto or rodando), use_container_width=True):
+    if st.button("▶  EXECUTAR ANÁLISE", disabled=(not pronto or rodando), width='stretch'):
         # Lê os bytes dos arquivos ANTES de passar para a thread
         # (Streamlit invalida os file objects fora da thread principal)
         scans_bytes = [(f.name, f.read()) for f in f_scans]
@@ -557,7 +638,6 @@ def render(usuario: str):
         st.progress(prog / 100, text=f"Processando… {prog}%")
         with st.expander("📋 Log em tempo real", expanded=True):
             st.code("\n".join(job.get("log", [])) or "Iniciando…")
-        import time; time.sleep(1)
         st.rerun()
 
     # ── Resultado quando terminar ──────────────────────────────
@@ -567,6 +647,66 @@ def render(usuario: str):
             st.code(job["err"])
         else:
             st.session_state["triagem_res"] = job["res"]
+            # Salva no Supabase
+            try:
+                from database import get_supabase_admin
+                import datetime
+                sb = get_supabase_admin()
+                res = job["res"]
+                data_ref = datetime.date.today().isoformat()
+
+                # Upload principal
+                up = sb.table("triagem_uploads").insert({
+                    "data_ref": data_ref,
+                    "criado_por": usuario,
+                    "total": int(res["total"]),
+                    "qtd_ok": int(res["ok"]),
+                    "qtd_erro": int(res["erro"]),
+                    "qtd_fora": int(res["fora"]),
+                    "taxa": float(res["taxa"]),
+                }).execute()
+                upload_id = up.data[0]["id"]
+
+                # Por DS
+                if not res["r_dc"].empty:
+                    rows = []
+                    for _, r in res["r_dc"].iterrows():
+                        rows.append({
+                            "upload_id": upload_id,
+                            "ds": str(r.iloc[0]),
+                            "total": int(r["Total Expedido"]),
+                            "ok": int(r["Triagem OK"]),
+                            "nok": int(r["Triagem NOK"]),
+                            "fora": int(r["Fora Abrangência"]),
+                            "taxa": float(r["Taxa (%)"]),
+                        })
+                    sb.table("triagem_por_ds").insert(rows).execute()
+
+                # Top 5
+                if not res["top5"].empty:
+                    rows = [{"upload_id": upload_id, "ds": str(r["DS"]), "total_erros": int(r["Total Erros"])}
+                            for _, r in res["top5"].iterrows()]
+                    sb.table("triagem_top5").insert(rows).execute()
+
+                # Por supervisor
+                if not res["r_sup"].empty:
+                    rows = []
+                    for _, r in res["r_sup"].iterrows():
+                        rows.append({
+                            "upload_id": upload_id,
+                            "supervisor": str(r.iloc[0]),
+                            "total": int(r["Total Expedido"]),
+                            "ok": int(r["Triagem OK"]),
+                            "nok": int(r["Triagem NOK"]),
+                            "fora": int(r["Fora Abrangência"]),
+                            "taxa": float(r["Taxa (%)"]),
+                        })
+                    sb.table("triagem_por_supervisor").insert(rows).execute()
+
+                st.success("✅ Resultado salvo no banco!")
+            except Exception as e:
+                st.warning(f"⚠️ Resultado gerado mas não salvo no banco: {e}")
+
             st.session_state["triagem_job"] = {}  # limpa job
 
         with st.expander("📋 Log de execução", expanded=not job.get("ok", True)):
@@ -634,7 +774,7 @@ def render(usuario: str):
             xaxis=dict(tickangle=-30, gridcolor="#e2e8f0"),
             yaxis=dict(gridcolor="#e2e8f0"),
             margin=dict(t=30, b=40, l=50, r=50))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col_g2:
         st.markdown('<div class="section-label">Top 5 DS com mais erros</div>',
@@ -653,7 +793,7 @@ def render(usuario: str):
                 yaxis=dict(gridcolor="#e2e8f0"),
                 coloraxis_showscale=False,
                 margin=dict(t=30, b=40, l=10, r=30))
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width='stretch')
         else:
             st.success("Nenhum erro de expedição encontrado! 🎉")
 
@@ -662,14 +802,14 @@ def render(usuario: str):
                 unsafe_allow_html=True)
     r_arq = res["r_arq"].copy()
     r_arq["Taxa (%)"] = r_arq["Taxa (%)"].map("{:.1f}%".format)
-    st.dataframe(r_arq, use_container_width=True, hide_index=True)
+    st.dataframe(r_arq, width='stretch', hide_index=True)
 
     if len(res.get("r_sup", pd.DataFrame())):
         st.markdown('<div class="section-label">Por Supervisor</div>',
                     unsafe_allow_html=True)
         r_sup = res["r_sup"].copy()
         r_sup["Taxa (%)"] = r_sup["Taxa (%)"].map("{:.1f}%".format)
-        st.dataframe(r_sup, use_container_width=True, hide_index=True)
+        st.dataframe(r_sup, width='stretch', hide_index=True)
 
     # Download Excel
     st.markdown('<div class="section-label">Download</div>', unsafe_allow_html=True)
@@ -679,5 +819,5 @@ def render(usuario: str):
         data=res["excel_bytes"],
         file_name=f"Relatorio_Triagem_{ts}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
+        width='stretch',
     )

@@ -475,6 +475,75 @@ def _construir_tabelas(df_base, entregas_sta, entregas_sup, top5, data_ref):
 #  INTERFACE STREAMLIT
 # ══════════════════════════════════════════════════════════════
 
+
+# ══════════════════════════════════════════════════════════════
+#  VIEW: USUÁRIOS COMUNS — lê do banco
+# ══════════════════════════════════════════════════════════════
+def _render_reclamacoes_viewer():
+    import streamlit as st
+    import pandas as pd
+    from database import get_supabase
+
+    sb = get_supabase()
+    uploads = sb.table("reclamacoes_uploads").select("*").order("criado_em", desc=True).limit(30).execute().data
+
+    if not uploads:
+        st.info("📭 Nenhum resultado disponível ainda. Aguarde o administrador processar os arquivos.")
+        return
+
+    opcoes = {f"{u['data_ref']} — {u['n_registros']} registros": u["id"] for u in uploads}
+    escolha = st.selectbox("📅 Selecionar processamento", list(opcoes.keys()))
+    upload_id = opcoes[escolha]
+    upload = next(u for u in uploads if u["id"] == upload_id)
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Registros",  upload["n_registros"])
+    col2.metric("Supervisores",     upload["n_sup"])
+    col3.metric("Stations",         upload["n_sta"])
+    col4.metric("Motoristas ID'd",  upload["n_mot"])
+
+    r_sup = sb.table("reclamacoes_por_supervisor").select("*").eq("upload_id", upload_id).execute().data
+    r_sta = sb.table("reclamacoes_por_station").select("*").eq("upload_id", upload_id).execute().data
+    top5  = sb.table("reclamacoes_top5").select("*").eq("upload_id", upload_id).order("total", desc=True).execute().data
+
+    if top5:
+        st.markdown("### 🏆 Top 5 Motoristas")
+        st.dataframe(pd.DataFrame(top5).drop(columns=["id","upload_id"], errors="ignore"), width="stretch")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if r_sup:
+            st.markdown("**Por Supervisor**")
+            st.dataframe(pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore"), width="stretch")
+    with col_b:
+        if r_sta:
+            st.markdown("**Por Station**")
+            st.dataframe(pd.DataFrame(r_sta).drop(columns=["id","upload_id"], errors="ignore"), width="stretch")
+
+    # Download Excel
+    if r_sup or r_sta:
+        import io
+        from openpyxl import Workbook
+        wb = Workbook()
+        if r_sup:
+            ws1 = wb.active; ws1.title = "Por Supervisor"
+            df_s = pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore")
+            ws1.append(list(df_s.columns))
+            for row in df_s.itertuples(index=False): ws1.append(list(row))
+        if r_sta:
+            ws2 = wb.create_sheet("Por Station")
+            df_st = pd.DataFrame(r_sta).drop(columns=["id","upload_id"], errors="ignore")
+            ws2.append(list(df_st.columns))
+            for row in df_st.itertuples(index=False): ws2.append(list(row))
+        buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+        st.download_button(
+            "⬇️ Baixar Excel",
+            data=buf,
+            file_name=f"reclamacoes_{upload['data_ref']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            width="stretch"
+        )
+
 def render(is_admin=True):
     import streamlit as st
     import sys, os
@@ -487,6 +556,10 @@ def render(is_admin=True):
       <div><h1>Reclamações</h1>
       <p>Análise de Tickets de Fake Delivery · D-1</p></div>
     </div>""", unsafe_allow_html=True)
+
+    if not is_admin:
+        _render_reclamacoes_viewer()
+        return
 
     aba1, aba2 = st.tabs(["⚙️ Processar Relatório", "🚗 Gestão de Motoristas"])
 
@@ -524,7 +597,7 @@ def render(is_admin=True):
             rc_job = st.session_state["rc_job"]
             rc_rodando = rc_job.get("rodando", False)
 
-            if st.button("⚙️ Processar e gerar relatório", use_container_width=True,
+            if st.button("⚙️ Processar e gerar relatório", width='stretch',
                          key="rc_processar", disabled=rc_rodando):
                 # Lê bytes antes de passar para thread
                 files_bytes = {
@@ -583,8 +656,7 @@ def render(is_admin=True):
                             top5=top5, entregas_sta=est, entregas_sup=esup,
                             data_ref=data_ref, df_delivered_raw=df_del_raw
                         )
-                        job["ok"]  = True
-                        job["res"] = {
+                        res_data = {
                             "excel_bytes": excel_bytes,
                             "nome_arquivo": f"reclamacoes_{data_ref.strftime('%Y%m%d')}.xlsx",
                             "n_registros": len(df),
@@ -596,6 +668,60 @@ def render(is_admin=True):
                             "agg_sta": agg_sta,
                             "inativos": inativos,
                         }
+                        job["ok"]  = True
+                        job["res"] = res_data
+
+                        # Salva no Supabase
+                        try:
+                            from database import get_supabase_admin
+                            sb = get_supabase_admin()
+                            up = sb.table("reclamacoes_uploads").insert({
+                                "data_ref": data_ref.date().isoformat(),
+                                "n_registros": res_data["n_registros"],
+                                "n_sup": int(res_data["n_sup"]),
+                                "n_sta": int(res_data["n_sta"]),
+                                "n_mot": res_data["n_mot"],
+                            }).execute()
+                            upload_id = up.data[0]["id"]
+
+                            # Por supervisor
+                            cols_sup = agg_sup.columns.tolist()
+                            rows_sup = []
+                            for _, r in agg_sup.iterrows():
+                                rows_sup.append({
+                                    "upload_id": upload_id,
+                                    "supervisor": str(r["Supervisor"]),
+                                    "dia_total": int(r.get("Dia Total", r.iloc[1])),
+                                    "mes_total": int(r.get("Mês Total", r.iloc[2])),
+                                })
+                            if rows_sup:
+                                sb.table("reclamacoes_por_supervisor").insert(rows_sup).execute()
+
+                            # Por station
+                            rows_sta = []
+                            for _, r in agg_sta.iterrows():
+                                rows_sta.append({
+                                    "upload_id": upload_id,
+                                    "station": str(r["Inventory Station"]),
+                                    "dia_total": int(r.iloc[1]),
+                                    "mes_total": int(r.iloc[2]),
+                                })
+                            if rows_sta:
+                                sb.table("reclamacoes_por_station").insert(rows_sta).execute()
+
+                            # Top 5
+                            rows_top = []
+                            for _, r in top5.iterrows():
+                                rows_top.append({
+                                    "upload_id": upload_id,
+                                    "motorista": str(r.iloc[0]),
+                                    "total": int(r.iloc[1]),
+                                })
+                            if rows_top:
+                                sb.table("reclamacoes_top5").insert(rows_top).execute()
+                        except Exception as e:
+                            import traceback
+                            print(f"Erro ao salvar no Supabase: {e}\n{traceback.format_exc()}")
                     except Exception as e:
                         job["ok"]  = False
                         job["err"] = tb.format_exc()
@@ -610,7 +736,6 @@ def render(is_admin=True):
                 etapa = rc_job.get("etapa", "Processando…")
                 st.info(f"⏳ {etapa}")
                 st.progress(0.5)
-                import time; time.sleep(1)
                 st.rerun()
 
             # ── Resultado quando terminar ──────────────────────
@@ -627,22 +752,22 @@ def render(is_admin=True):
                 c4.metric("Motoristas ID'd", rc_res["n_mot"])
 
                 st.markdown("### 🏆 Top 5 Motoristas")
-                st.dataframe(rc_res["top5"], use_container_width=True)
+                st.dataframe(rc_res["top5"], width='stretch')
 
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.markdown("**Por Supervisor (dia)**")
-                    st.dataframe(rc_res["agg_sup"].head(10), use_container_width=True)
+                    st.dataframe(rc_res["agg_sup"].head(10), width='stretch')
                 with col_b:
                     st.markdown("**Por Station (dia)**")
-                    st.dataframe(rc_res["agg_sta"].head(10), use_container_width=True)
+                    st.dataframe(rc_res["agg_sta"].head(10), width='stretch')
 
                 st.download_button(
                     label="⬇️ Baixar Relatório Excel",
                     data=rc_res["excel_bytes"],
                     file_name=rc_res["nome_arquivo"],
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    width='stretch'
                 )
 
             elif rc_job.get("ok") is False and not rc_rodando:
@@ -682,7 +807,7 @@ def _render_gestao_motoristas(st, get_status_fn, upsert_fn, listar_inativos_fn):
                 "Por":           v.get("atualizado_por") or "—",
             })
         df_status = __import__("pandas").DataFrame(rows)
-        st.dataframe(df_status, use_container_width=True, hide_index=True)
+        st.dataframe(df_status, width='stretch', hide_index=True)
     else:
         st.info("Nenhum motorista cadastrado ainda. Adicione abaixo.")
 
@@ -702,7 +827,7 @@ def _render_gestao_motoristas(st, get_status_fn, upsert_fn, listar_inativos_fn):
             motivo_input = st.text_input("Motivo (opcional)",
                                           placeholder="Ex: Afastado / Desligado / Em investigação")
 
-        submitted = st.form_submit_button("💾 Salvar", use_container_width=True)
+        submitted = st.form_submit_button("💾 Salvar", width='stretch')
 
         if submitted:
             if not id_input.strip():

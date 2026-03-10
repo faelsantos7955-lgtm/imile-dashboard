@@ -102,7 +102,7 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     st.divider()
-    if st.button("🚪 Sair", use_container_width=True):
+    if st.button("🚪 Sair", width='stretch'):
         auth_logout()
 
 # ══════════════════════════════════════════════════════════════
@@ -119,7 +119,7 @@ if pagina == "📊 Dashboard":
         </div>""", unsafe_allow_html=True)
     with col_refresh:
         st.markdown("<div style='padding-top:18px'>", unsafe_allow_html=True)
-        if st.button("🔄 Atualizar agora", use_container_width=True):
+        if st.button("🔄 Atualizar agora", width='stretch'):
             invalidar_cache()
             st.rerun()
         ultimo = st.session_state.get("ultimo_refresh", _dt.now().strftime("%H:%M:%S"))
@@ -251,22 +251,22 @@ if pagina == "📊 Dashboard":
     # ── Gráficos ──────────────────────────────────────────────
     col_a, col_b = st.columns([1.3, 1])
     with col_a:
-        st.plotly_chart(chart_volume_ds(df_dia), use_container_width=True)
+        st.plotly_chart(chart_volume_ds(df_dia), width='stretch')
     with col_b:
-        st.plotly_chart(chart_donut(rec, exp, tx), use_container_width=True)
+        st.plotly_chart(chart_donut(rec, exp, tx), width='stretch')
 
-    st.plotly_chart(chart_taxa_ds(df_dia), use_container_width=True)
+    st.plotly_chart(chart_taxa_ds(df_dia), width='stretch')
 
     if len(df_cid):
         tem_entregas = df_cid["entregas"].sum() > 0
         if tem_entregas:
             col_c, col_d = st.columns(2)
             with col_c:
-                st.plotly_chart(chart_heatmap_cidades(df_cid, "taxa_exp"), use_container_width=True)
+                st.plotly_chart(chart_heatmap_cidades(df_cid, "taxa_exp"), width='stretch')
             with col_d:
-                st.plotly_chart(chart_heatmap_cidades(df_cid, "taxa_ent"), use_container_width=True)
+                st.plotly_chart(chart_heatmap_cidades(df_cid, "taxa_ent"), width='stretch')
         else:
-            st.plotly_chart(chart_heatmap_cidades(df_cid, "taxa_exp"), use_container_width=True)
+            st.plotly_chart(chart_heatmap_cidades(df_cid, "taxa_exp"), width='stretch')
             st.caption("ℹ️ Mapa de Taxa de Entrega não exibido — sem dados de entregas para este dia.")
 
     # ── Ranking DS ────────────────────────────────────────────
@@ -291,7 +291,7 @@ if pagina == "📊 Dashboard":
 
     st.dataframe(
         df_rank.style.apply(_colorir_linha, axis=1),
-        use_container_width=True, hide_index=True
+        width='stretch', hide_index=True
     )
 
     # ── Meta dinâmica por DS (só admin) ───────────────────────
@@ -343,7 +343,7 @@ if pagina == "📊 Dashboard":
                         ),
                     },
                     hide_index=True,
-                    use_container_width=True,
+                    width='stretch',
                     key="editor_metas_bulk",
                 )
                 if st.button("💾 Salvar todas", key="btn_meta_bulk"):
@@ -374,6 +374,9 @@ if pagina == "📊 Dashboard":
 #  PÁGINA: UPLOAD / PROCESSAR
 # ══════════════════════════════════════════════════════════════
 elif pagina == "📤 Upload / Processar":
+    if not is_admin:
+        st.error("🔒 Acesso restrito ao administrador.")
+        st.stop()
     st.markdown("""
     <div class="app-header">
       <div class="app-header-icon">📤</div>
@@ -463,7 +466,7 @@ elif pagina == "📤 Upload / Processar":
     if not pronto:
         st.info("Faça o upload dos 3 arquivos obrigatórios.")
 
-    if st.button(f"▶  PROCESSAR E SALVAR — {data_lbl}", disabled=not pronto, use_container_width=True):
+    if st.button(f"▶  PROCESSAR E SALVAR — {data_lbl}", disabled=not pronto, width='stretch'):
         prog = st.progress(0, text="Iniciando...")
         try:
             prog.progress(8,  "Carregando arquivos...")
@@ -611,7 +614,7 @@ elif pagina == "📤 Upload / Processar":
             data=st.session_state["excel_bytes"],
             file_name=st.session_state.get("excel_filename", "Dashboard_Expedicao.xlsx"),
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width='stretch',
         )
 
 # ══════════════════════════════════════════════════════════════
@@ -655,7 +658,7 @@ elif pagina == "📅 Histórico":
     c3.metric("Taxa Média",      f"{tx_per:.1%}")
     c4.metric("Dias no período", dias)
 
-    st.plotly_chart(chart_evolucao_diaria(df_hist), use_container_width=True)
+    st.plotly_chart(chart_evolucao_diaria(df_hist), width='stretch')
 
     # ── Tabela por dia ────────────────────────────────────────
     st.markdown('<div class="section-label">Resumo por dia</div>', unsafe_allow_html=True)
@@ -663,12 +666,12 @@ elif pagina == "📅 Histórico":
     agg["data_ref"] = pd.to_datetime(agg["data_ref"]).dt.strftime("%d/%m/%Y")
     agg.columns     = ["Data","Recebido","Expedido","Entregas","taxa_exp","Taxa Exp."]
     st.dataframe(agg[["Data","Recebido","Expedido","Entregas","Taxa Exp."]],
-                 use_container_width=True, hide_index=True)
+                 width='stretch', hide_index=True)
 
     # ── Download Excel do período ─────────────────────────────
     st.markdown('<div class="section-label">Download do período</div>', unsafe_allow_html=True)
 
-    if st.button("📥  Gerar Excel do período", use_container_width=True, key="btn_excel_hist"):
+    if st.button("📥  Gerar Excel do período", width='stretch', key="btn_excel_hist"):
         with st.spinner("Gerando Excel..."):
             try:
                 # Monta pivot a partir do histórico agregado por DS
@@ -722,7 +725,7 @@ elif pagina == "📅 Histórico":
             data=st.session_state["excel_hist_bytes"],
             file_name=st.session_state.get("excel_hist_filename","Historico.xlsx"),
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width='stretch',
             key="dl_excel_hist"
         )
 
@@ -757,11 +760,11 @@ elif pagina == "📈 Comparativos":
     # Tabs por período
     tab_d, tab_s, tab_m = st.tabs(["📅 Diário", "📆 Semanal", "🗓️ Mensal"])
     with tab_d:
-        st.plotly_chart(chart_comparativo(df_hist, "dia"),    use_container_width=True)
+        st.plotly_chart(chart_comparativo(df_hist, "dia"),    width='stretch')
     with tab_s:
-        st.plotly_chart(chart_comparativo(df_hist, "semana"), use_container_width=True)
+        st.plotly_chart(chart_comparativo(df_hist, "semana"), width='stretch')
     with tab_m:
-        st.plotly_chart(chart_comparativo(df_hist, "mes"),    use_container_width=True)
+        st.plotly_chart(chart_comparativo(df_hist, "mes"),    width='stretch')
 
     st.divider()
 
@@ -785,13 +788,13 @@ elif pagina == "📈 Comparativos":
         legend=dict(bgcolor="#1e293b", bordercolor="#334155"))
     fig.add_hline(y=0.5, line_dash="dash", line_color="#64748b",
                   annotation_text="Meta 50%")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA: TRIAGEM DC×DS
 # ══════════════════════════════════════════════════════════════
 elif pagina == "🔀 Triagem DC×DS":
-    mod_triagem.render(usuario)
+    mod_triagem.render(usuario, is_admin=is_admin)
 
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA: SOLICITAÇÕES DE ACESSO (somente admin)
@@ -850,7 +853,7 @@ elif pagina == "👥 Solicitações de Acesso":
                         )
                     with col_apr:
                         if st.button("✅ Aprovar", key=f"apr_{s['id']}",
-                                      use_container_width=True):
+                                      width='stretch'):
                             ok, err = aprovar_solicitacao(
                                 s["id"], s["email"], s["nome"],
                                 s.get("regiao",""), role_sel)
@@ -863,7 +866,7 @@ elif pagina == "👥 Solicitações de Acesso":
                                 st.error(f"Erro: {err}")
                     with col_rej:
                         if st.button("❌ Rejeitar", key=f"rej_{s['id']}",
-                                      use_container_width=True):
+                                      width='stretch'):
                             ok, err = rejeitar_solicitacao(s["id"])
                             if ok:
                                 listar_solicitacoes.clear()
@@ -885,7 +888,7 @@ elif pagina == "👥 Solicitações de Acesso":
                 df_hist_s.columns = ["Nome","Email","Empresa","Região","Solicitado em"]
                 df_hist_s["Solicitado em"] = pd.to_datetime(
                     df_hist_s["Solicitado em"]).dt.strftime("%d/%m/%Y")
-                st.dataframe(df_hist_s, use_container_width=True, hide_index=True)
+                st.dataframe(df_hist_s, width='stretch', hide_index=True)
 
     with tab_users:
         users = listar_usuarios()
@@ -972,7 +975,7 @@ elif pagina == "👥 Solicitações de Acesso":
                     # ── Status ────────────────────────────────
                     novo_ativo = st.checkbox("Usuário ativo", value=ativo, key=f"ativo_{uid}")
 
-                    if st.button("💾 Salvar permissões", key=f"salvar_{uid}", use_container_width=True):
+                    if st.button("💾 Salvar permissões", key=f"salvar_{uid}", width='stretch'):
                         ok, err = atualizar_permissoes_usuario(
                             uid, novas_bases, novas_pags,
                             novo_role, usuario, novo_ativo
@@ -1008,11 +1011,11 @@ elif pagina == "⚙️ Configurações":
             st.success(f"✅ {len(df_sup_atual)} bases cadastradas no banco")
             col_t, col_b = st.columns([3, 1])
             with col_t:
-                st.dataframe(df_sup_atual, use_container_width=True, hide_index=True)
+                st.dataframe(df_sup_atual, width='stretch', hide_index=True)
             with col_b:
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
                 # Botão para limpar
-                if st.button("🗑️ Limpar supervisores", use_container_width=True, type="secondary"):
+                if st.button("🗑️ Limpar supervisores", width='stretch', type="secondary"):
                     sb = get_supabase()
                     sb.table("config_supervisores").delete().neq("id", 0).execute()
                     st.success("Supervisores removidos. Suba um novo arquivo na próxima vez.")
@@ -1026,7 +1029,7 @@ elif pagina == "⚙️ Configurações":
         f_sup_cfg = st.file_uploader(
             "Novo arquivo de supervisores", type=["xlsx","xls"],
             key="sup_cfg", label_visibility="visible")
-        if f_sup_cfg and st.button("💾 Salvar supervisores", use_container_width=True):
+        if f_sup_cfg and st.button("💾 Salvar supervisores", width='stretch'):
             with st.spinner("Salvando..."):
                 try:
                     df_new = normalizar_colunas(
@@ -1048,10 +1051,10 @@ elif pagina == "⚙️ Configurações":
             df_meta_show["Meta"] = df_meta_show["Meta"].map("{:.1%}".format)
             col_t2, col_b2 = st.columns([3, 1])
             with col_t2:
-                st.dataframe(df_meta_show, use_container_width=True, hide_index=True)
+                st.dataframe(df_meta_show, width='stretch', hide_index=True)
             with col_b2:
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                if st.button("🗑️ Limpar metas", use_container_width=True, type="secondary"):
+                if st.button("🗑️ Limpar metas", width='stretch', type="secondary"):
                     sb = get_supabase()
                     sb.table("config_metas").delete().neq("id", 0).execute()
                     st.success("Metas removidas.")
@@ -1065,7 +1068,7 @@ elif pagina == "⚙️ Configurações":
         f_meta_cfg = st.file_uploader(
             "Novo arquivo de metas", type=["xlsx","xls"],
             key="meta_cfg", label_visibility="visible")
-        if f_meta_cfg and st.button("💾 Salvar metas", use_container_width=True):
+        if f_meta_cfg and st.button("💾 Salvar metas", width='stretch'):
             with st.spinner("Salvando..."):
                 try:
                     df_new = normalizar_colunas(
