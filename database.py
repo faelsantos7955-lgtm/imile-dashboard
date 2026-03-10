@@ -44,17 +44,25 @@ import pandas as pd
 from datetime import date, timedelta
 
 # ── Conexão ───────────────────────────────────────────────────
+def _get_secret(key: str, default: str = None) -> str:
+    """Lê de st.secrets (local) ou variável de ambiente (HF Spaces / Docker)."""
+    import os
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.environ.get(key, default)
+
 @st.cache_resource
 def get_supabase() -> Client:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    url = _get_secret("SUPABASE_URL")
+    key = _get_secret("SUPABASE_KEY")
     return create_client(url, key)
 
 @st.cache_resource
 def get_supabase_admin() -> Client:
     """Cliente com service_role key para operacoes admin (invite, etc)."""
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets.get("SUPABASE_SERVICE_KEY", st.secrets["SUPABASE_KEY"])
+    url = _get_secret("SUPABASE_URL")
+    key = _get_secret("SUPABASE_SERVICE_KEY") or _get_secret("SUPABASE_KEY")
     return create_client(url, key)
 
 # ══════════════════════════════════════════════════════════════
