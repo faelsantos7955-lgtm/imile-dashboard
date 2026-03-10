@@ -444,18 +444,12 @@ PAGINAS_DISPONIVEIS = [
     "📈 Comparativos",
     "🔀 Triagem DC×DS",
     "📋 Reclamações",
-]
-
-# Páginas exclusivas de admin — nunca atribuíveis a outros perfis
-PAGINAS_ADMIN_ONLY = [
     "📤 Upload / Processar",
-    "👥 Solicitações de Acesso",
-    "⚙️ Configurações",
 ]
 
 # Páginas padrão por perfil
 PAGINAS_POR_PERFIL = {
-    "admin":      PAGINAS_DISPONIVEIS,  # conteúdo; admin_only é sempre adicionado no sidebar
+    "admin":      PAGINAS_DISPONIVEIS,  # tudo
     "supervisor": ["📊 Dashboard", "📅 Histórico", "📈 Comparativos", "📋 Reclamações", "🔀 Triagem DC×DS"],
     "operador":   ["📊 Dashboard", "📅 Histórico", "🔀 Triagem DC×DS"],
     "viewer":     ["📊 Dashboard", "📅 Histórico"],

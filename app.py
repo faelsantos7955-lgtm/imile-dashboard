@@ -27,7 +27,7 @@ from database import (
     get_supabase, invalidar_cache,
     listar_solicitacoes, aprovar_solicitacao, rejeitar_solicitacao, listar_usuarios,
     listar_bases_disponiveis, atualizar_bases_usuario,
-    PAGINAS_DISPONIVEIS, PAGINAS_POR_PERFIL,
+    PAGINAS_DISPONIVEIS, PAGINAS_POR_PERFIL, PAGINAS_ADMIN_ONLY,
     atualizar_permissoes_usuario, get_paginas_usuario,
     get_motoristas_status, upsert_motorista_status, listar_motoristas_inativos,
     invalidar_cache_config,
@@ -86,21 +86,62 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.divider()
 
-    # Páginas liberadas para o usuário
+    # ── Separação: páginas de conteúdo vs páginas de admin ──
     if is_admin:
-        _paginas = list(PAGINAS_DISPONIVEIS)
+        _paginas_content = list(PAGINAS_DISPONIVEIS)
+        _paginas_adm     = list(PAGINAS_ADMIN_ONLY)
     else:
         _user_id = st.session_state.get("user_id", "")
         _role    = st.session_state.get("user_role", "viewer")
-        _paginas = get_paginas_usuario(_user_id, _role)
+        # get_paginas_usuario já retorna só páginas de PAGINAS_DISPONIVEIS
+        _paginas_content = get_paginas_usuario(_user_id, _role)
+        _paginas_adm     = []
 
-    if is_admin:
-        _paginas.append("👥 Solicitações de Acesso")
-        _paginas.append("⚙️ Configurações")
-    pagina = st.radio(
-        "Navegação", _paginas,
-        label_visibility="collapsed"
+    # Inicializa página ativa
+    _default = _paginas_content[0] if _paginas_content else ("📤 Upload / Processar" if is_admin else "")
+    if "pagina_atual" not in st.session_state or st.session_state["pagina_atual"] not in (_paginas_content + _paginas_adm):
+        st.session_state["pagina_atual"] = _default
+
+    # ── Seção: Navegação (todos) ──────────────────────────────
+    st.markdown(
+        '<div style="font-size:10px;color:#475569;font-weight:700;'
+        'text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">'
+        'Navegação</div>',
+        unsafe_allow_html=True
     )
+    for _p in _paginas_content:
+        _ativo = st.session_state["pagina_atual"] == _p
+        if st.button(
+            _p,
+            key=f"nav_{_p}",
+            type="primary" if _ativo else "secondary",
+            use_container_width=True,
+        ):
+            st.session_state["pagina_atual"] = _p
+            st.rerun()
+
+    # ── Seção: Administração (só admin) ───────────────────────
+    if is_admin and _paginas_adm:
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        st.divider()
+        st.markdown(
+            '<div style="font-size:10px;color:#dc2626;font-weight:700;'
+            'text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">'
+            '⚙ Administração</div>',
+            unsafe_allow_html=True
+        )
+        for _p in _paginas_adm:
+            _ativo = st.session_state["pagina_atual"] == _p
+            if st.button(
+                _p,
+                key=f"nav_adm_{_p}",
+                type="primary" if _ativo else "secondary",
+                use_container_width=True,
+            ):
+                st.session_state["pagina_atual"] = _p
+                st.rerun()
+
+    pagina = st.session_state["pagina_atual"]
     st.divider()
     if st.button("🚪 Sair", width='stretch'):
         auth_logout()
@@ -140,7 +181,10 @@ if pagina == "📊 Dashboard":
     # ── Carrega datas disponíveis ─────────────────────────────
     datas = ler_datas_disponiveis(bases_user)
     if not datas:
-        st.info("Nenhum dado no histórico ainda. Vá para **Upload / Processar** para gerar o primeiro.")
+        if is_admin:
+            st.info("Nenhum dado no histórico ainda. Vá para **📤 Upload / Processar** (seção Administração) para gerar o primeiro.")
+        else:
+            st.info("Nenhum dado disponível ainda. Aguarde o administrador processar os arquivos do dia.")
         st.stop()
 
     # ── Filtros interativos na sidebar ────────────────────────
@@ -943,7 +987,7 @@ elif pagina == "👥 Solicitações de Acesso":
                     if usar_custom_pags:
                         novas_pags = st.multiselect(
                             "Páginas visíveis",
-                            options=PAGINAS_DISPONIVEIS,
+                            options=PAGINAS_DISPONIVEIS,  # nunca inclui páginas admin
                             default=[p for p in pags_atuais if p in PAGINAS_DISPONIVEIS] or pags_perfil,
                             key=f"pags_{uid}"
                         )
