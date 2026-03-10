@@ -425,241 +425,430 @@ elif pagina == "📤 Upload / Processar":
     <div class="app-header">
       <div class="app-header-icon">📤</div>
       <div><h1>Upload e Processamento</h1>
-      <p>Carregue os arquivos do dia · Processe · Salva automaticamente no histórico</p></div>
+      <p>Central de upload · Suba os arquivos uma vez · Processe Dashboard e Reclamações</p></div>
     </div>""", unsafe_allow_html=True)
 
     _tem_sup  = tem_supervisores()
     _tem_meta = tem_metas()
 
-    st.markdown('<div class="section-label">Arquivos de entrada</div>', unsafe_allow_html=True)
+    # ══════════════════════════════════════════════
+    #  BLOCO 1 — ARQUIVOS COMPARTILHADOS
+    # ══════════════════════════════════════════════
+    st.markdown('<div class="section-label">Arquivos compartilhados · usados pelo Dashboard e Reclamações</div>',
+                unsafe_allow_html=True)
 
-    # Aviso se arquivos fixos já estão salvos
-    if _tem_sup and _tem_meta:
-        st.success("✅ Supervisores e Metas já salvos no banco — não precisa subir novamente. Gerencie em ⚙️ Configurações.")
-    elif _tem_sup:
-        st.info("✅ Supervisores já salvos. Metas ainda não configuradas — você pode subir abaixo ou em ⚙️ Configurações.")
-    elif _tem_meta:
-        st.info("✅ Metas já salvas. Supervisores ainda não configurados — suba o arquivo abaixo.")
+    _col_sh1, _col_sh2 = st.columns(2, gap="large")
+    with _col_sh1:
+        st.markdown(
+            f'<div class="upload-label">Supervisores / Gestão de Bases '
+            f'{"<span class=\\"badge-o\\">✅ JÁ SALVO</span>" if _tem_sup else "<span class=\\"badge-r\\">OBRIGATÓRIO 1ª vez</span>"}'
+            f'</div>'
+            f'<div class="upload-hint">colunas: SIGLA, REGION, SUPERVISOR</div>',
+            unsafe_allow_html=True)
+        f_sup = st.file_uploader("sup", type=["xlsx","xls"], key="sup",
+                                  label_visibility="collapsed")
 
-    col1, col2 = st.columns(2, gap="large")
-
-    with col1:
-        st.markdown('<div class="upload-label">Recebimento <span class="badge-r">OBRIGATÓRIO</span></div>'
-                    '<div class="upload-hint">todos os arquivos da pasta — precisa ter coluna de data</div>',
-                    unsafe_allow_html=True)
-        f_rec = st.file_uploader("rec", type=["xlsx","xls"], key="rec",
-                                  accept_multiple_files=True, label_visibility="collapsed")
-        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-
-        st.markdown('<div class="upload-label">Out of Delivery <span class="badge-r">OBRIGATÓRIO</span></div>'
-                    '<div class="upload-hint">todos os arquivos da pasta</div>',
-                    unsafe_allow_html=True)
-        f_out = st.file_uploader("out", type=["xlsx","xls"], key="out",
-                                  accept_multiple_files=True, label_visibility="collapsed")
-
-    with col2:
-        st.markdown('<div class="upload-label">Entregas <span class="badge-o">OPCIONAL</span></div>'
-                    '<div class="upload-hint">todos os arquivos da pasta</div>',
-                    unsafe_allow_html=True)
+    with _col_sh2:
+        st.markdown(
+            '<div class="upload-label">Entregas / Delivered '
+            '<span class="badge-o">OPCIONAL</span></div>'
+            '<div class="upload-hint">usado como Entregas no Dashboard e como Delivered nas Reclamações</div>',
+            unsafe_allow_html=True)
         f_ent = st.file_uploader("ent", type=["xlsx","xls"], key="ent",
                                   accept_multiple_files=True, label_visibility="collapsed")
-        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
-        if not _tem_sup:
-            st.markdown('<div class="upload-label">Supervisores <span class="badge-r">OBRIGATÓRIO (1ª vez)</span></div>'
-                        '<div class="upload-hint">arquivo único — colunas: SIGLA, REGION</div>',
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════
+    #  BLOCO 2 — TABS POR MÓDULO
+    # ══════════════════════════════════════════════
+    tab_dash, tab_rec = st.tabs(["📊 Dashboard", "📋 Reclamações"])
+
+    # ──────────────────────────────────────────────
+    #  TAB DASHBOARD
+    # ──────────────────────────────────────────────
+    with tab_dash:
+        st.markdown('<div class="section-label">Arquivos de expedição</div>', unsafe_allow_html=True)
+
+        if _tem_meta:
+            st.success("✅ Metas já salvas no banco — não precisa subir novamente. Gerencie em ⚙️ Configurações.")
+
+        _dc1, _dc2 = st.columns(2, gap="large")
+        with _dc1:
+            st.markdown('<div class="upload-label">Recebimento <span class="badge-r">OBRIGATÓRIO</span></div>'
+                        '<div class="upload-hint">todos os arquivos da pasta — precisa ter coluna de data</div>',
                         unsafe_allow_html=True)
-            f_sup = st.file_uploader("sup", type=["xlsx","xls"], key="sup", label_visibility="collapsed")
-            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-        else:
-            f_sup = None
+            f_rec = st.file_uploader("rec", type=["xlsx","xls"], key="rec",
+                                      accept_multiple_files=True, label_visibility="collapsed")
 
-        if not _tem_meta:
-            st.markdown('<div class="upload-label">Metas por Base <span class="badge-o">OPCIONAL (1ª vez)</span></div>'
-                        '<div class="upload-hint">arquivo único — colunas: DS, Meta</div>',
+        with _dc2:
+            st.markdown('<div class="upload-label">Out of Delivery <span class="badge-r">OBRIGATÓRIO</span></div>'
+                        '<div class="upload-hint">todos os arquivos da pasta</div>',
                         unsafe_allow_html=True)
-            f_meta = st.file_uploader("meta", type=["xlsx","xls"], key="meta", label_visibility="collapsed")
-        else:
-            f_meta = None
+            f_out = st.file_uploader("out", type=["xlsx","xls"], key="out",
+                                      accept_multiple_files=True, label_visibility="collapsed")
 
-    # ── Detecção de data ──────────────────────────────────────
-    data_selecionada = None
-    col_data_nome    = None
-
-    if f_rec:
-        st.markdown('<div class="section-label">Selecione a data</div>', unsafe_allow_html=True)
-        with st.spinner("Detectando datas..."):
-            col_data_nome = detectar_coluna_data(f_rec[0])
-            datas_disp    = ler_datas_recebimento(f_rec, col_data_nome) if col_data_nome else []
-
-        if col_data_nome and datas_disp:
-            st.success(f"Coluna de data: **{col_data_nome}** — {len(datas_disp)} dia(s) disponível(is)")
-            data_selecionada = st.selectbox(
-                "Dia para processar:",
-                options=datas_disp,
-                format_func=lambda d: d.strftime("%d/%m/%Y (%A)"),
-                index=len(datas_disp)-1
-            )
-        else:
-            st.warning("Coluna de data não encontrada. Todos os registros serão usados.")
-
-    # ── Botão processar ───────────────────────────────────────
-    st.markdown('<div class="section-label">Processar</div>', unsafe_allow_html=True)
-    pronto    = bool(_tem_sup or f_sup) and bool(f_rec) and bool(f_out)
-    data_lbl  = data_selecionada.strftime("%d/%m/%Y") if data_selecionada else "todos os dias"
-    if not pronto:
-        st.info("Faça o upload dos 3 arquivos obrigatórios.")
-
-    if st.button(f"▶  PROCESSAR E SALVAR — {data_lbl}", disabled=not pronto, width='stretch'):
-        prog = st.progress(0, text="Iniciando...")
-        try:
-            prog.progress(8,  "Carregando arquivos...")
-            cols_rec = {"Scan Station":"Scan Station","Waybill Number":"Waybill Number",
-                        "Destination City":"Destination City"}
-            if col_data_nome:
-                cols_rec[col_data_nome] = col_data_nome
-            cols_out = {"Waybill No.":"Waybill No.","Scan time":"Scan time"}
-
-            # Supervisores — usa arquivo novo ou carrega do banco
-            if f_sup:
-                df_sup = normalizar_colunas(pd.read_excel(f_sup), {"SIGLA":"SIGLA","REGION":"REGION"})
-                salvar_supervisores(df_sup, usuario)
-                st.toast("✅ Supervisores salvos no banco!", icon="💾")
+            if not _tem_meta:
+                st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+                st.markdown('<div class="upload-label">Metas por Base <span class="badge-o">OPCIONAL (1ª vez)</span></div>'
+                            '<div class="upload-hint">arquivo único — colunas: DS, Meta</div>',
+                            unsafe_allow_html=True)
+                f_meta = st.file_uploader("meta", type=["xlsx","xls"], key="meta",
+                                           label_visibility="collapsed")
             else:
-                df_sup = carregar_supervisores()
-            df_rec = _ler_uploads(f_rec, cols_rec)
-            df_out = _ler_uploads(f_out, cols_out)
+                f_meta = None
 
-            # Filtro por data
-            prog.progress(18, "Filtrando por data...")
-            if data_selecionada and col_data_nome and col_data_nome in df_rec.columns:
-                df_rec[col_data_nome] = pd.to_datetime(df_rec[col_data_nome], errors="coerce")
-                df_rec = df_rec[df_rec[col_data_nome].dt.date == data_selecionada].copy()
-                if len(df_rec) == 0:
-                    st.error("Nenhum registro para a data selecionada.")
-                    st.stop()
+        # Detecção de data
+        data_selecionada = None
+        col_data_nome    = None
+        if f_rec:
+            st.markdown('<div class="section-label">Selecione a data</div>', unsafe_allow_html=True)
+            with st.spinner("Detectando datas..."):
+                col_data_nome = detectar_coluna_data(f_rec[0])
+                datas_disp    = ler_datas_recebimento(f_rec, col_data_nome) if col_data_nome else []
+            if col_data_nome and datas_disp:
+                st.success(f"Coluna de data: **{col_data_nome}** — {len(datas_disp)} dia(s) disponível(is)")
+                data_selecionada = st.selectbox(
+                    "Dia para processar:",
+                    options=datas_disp,
+                    format_func=lambda d: d.strftime("%d/%m/%Y (%A)"),
+                    index=len(datas_disp)-1
+                )
+            else:
+                st.warning("Coluna de data não encontrada. Todos os registros serão usados.")
 
-            if "Scan Station" not in df_out.columns:
-                wb_to_ss = (df_rec[["Waybill Number","Scan Station"]]
-                            .dropna(subset=["Waybill Number","Scan Station"])
-                            .drop_duplicates("Waybill Number")
-                            .rename(columns={"Waybill Number":"Waybill No."}))
-                df_out = df_out.merge(wb_to_ss, on="Waybill No.", how="left")
+        # Botão processar Dashboard
+        st.markdown('<div class="section-label">Processar Dashboard</div>', unsafe_allow_html=True)
+        _pronto_dash = bool(_tem_sup or f_sup) and bool(f_rec) and bool(f_out)
+        _data_lbl    = data_selecionada.strftime("%d/%m/%Y") if data_selecionada else "todos os dias"
+        if not _pronto_dash:
+            st.info("Suba Recebimento e Out of Delivery (+ Supervisores se for a 1ª vez).")
 
-            df_ent  = _ler_uploads(f_ent,  {"Scan Station":"Scan Station","Waybill No.":"Waybill No."}) if f_ent  else None
-            df_meta = None
-            if f_meta:
-                df_meta = normalizar_colunas(pd.read_excel(f_meta), {"DS":"DS","Meta":"Meta"})
-                df_meta["DS"] = df_meta["DS"].astype(str).str.strip()
-                # Salva no banco para próximas vezes
-                _meta_tmp = df_meta.copy()
-                # Lê o valor bruto — Excel já guarda % como decimal (0.795 = 79,5%)
-                # Se vier como string "79,5%" converte manualmente
-                meta_raw = df_meta["Meta"]
-                # Tenta ler direto (caso Excel já seja decimal 0.xx)
-                meta_num = pd.to_numeric(meta_raw, errors="coerce")
-                # Se algum valor veio como string com % ou vírgula, converte
-                if meta_num.isna().any() or (meta_raw.astype(str).str.contains("%", na=False).any()):
-                    meta_str = (meta_raw.astype(str)
-                                .str.replace("%", "", regex=False)
-                                .str.replace(",", ".", regex=False)
-                                .str.strip())
-                    meta_num = pd.to_numeric(meta_str, errors="coerce")
-                    # Valores > 1 vieram como 79.5 → divide por 100
-                    meta_num = meta_num.where(meta_num <= 1.0, meta_num / 100)
+        if st.button(f"▶  PROCESSAR DASHBOARD — {_data_lbl}", disabled=not _pronto_dash,
+                     width='stretch', key="btn_proc_dash"):
+            prog = st.progress(0, text="Iniciando...")
+            try:
+                prog.progress(8, "Carregando arquivos...")
+                cols_rec = {"Scan Station":"Scan Station","Waybill Number":"Waybill Number",
+                            "Destination City":"Destination City"}
+                if col_data_nome:
+                    cols_rec[col_data_nome] = col_data_nome
+                cols_out = {"Waybill No.":"Waybill No.","Scan time":"Scan time"}
+
+                if f_sup:
+                    df_sup = normalizar_colunas(pd.read_excel(f_sup), {"SIGLA":"SIGLA","REGION":"REGION"})
+                    salvar_supervisores(df_sup, usuario)
+                    st.toast("✅ Supervisores salvos no banco!", icon="💾")
                 else:
-                    # Valores já decimais — se algum > 1 também divide
-                    meta_num = meta_num.where(meta_num <= 1.0, meta_num / 100)
-                df_meta["Meta"] = meta_num.fillna(0.5)
-                _meta_tmp["Meta"] = df_meta["Meta"]
-                salvar_metas(_meta_tmp, usuario)
-                st.toast("✅ Metas atualizadas no banco!", icon="💾")
-            elif tem_metas():
-                df_meta = carregar_metas()
+                    df_sup = carregar_supervisores()
 
-            prog.progress(32, "Padronizando Scan Stations...")
-            mapa    = construir_mapa_sigla(df_sup)
-            df_rec  = filtrar_dados(df_sup, df_rec, mapa)
-            df_out  = padronizar_scan_station(df_out, mapa)
-            if df_ent is not None:
-                df_ent = padronizar_scan_station(df_ent, mapa)
+                df_rec = _ler_uploads(f_rec, cols_rec)
+                df_out = _ler_uploads(f_out, cols_out)
 
-            prog.progress(48, "Calculando volumes por Waybill...")
-            df_merge      = fazer_merge(df_sup, df_rec)
-            pivot         = criar_pivot(df_merge, df_out, df_ent)
-            pivot_cidades = criar_pivot_cidades(df_merge, df_out, df_ent)
+                prog.progress(18, "Filtrando por data...")
+                if data_selecionada and col_data_nome and col_data_nome in df_rec.columns:
+                    df_rec[col_data_nome] = pd.to_datetime(df_rec[col_data_nome], errors="coerce")
+                    df_rec = df_rec[df_rec[col_data_nome].dt.date == data_selecionada].copy()
+                    if len(df_rec) == 0:
+                        st.error("Nenhum registro para a data selecionada.")
+                        st.stop()
 
-            prog.progress(65, "Calculando métricas...")
-            pivot_m = calcular_metricas(pivot, df_meta)
+                if "Scan Station" not in df_out.columns:
+                    wb_to_ss = (df_rec[["Waybill Number","Scan Station"]]
+                                .dropna(subset=["Waybill Number","Scan Station"])
+                                .drop_duplicates("Waybill Number")
+                                .rename(columns={"Waybill Number":"Waybill No."}))
+                    df_out = df_out.merge(wb_to_ss, on="Waybill No.", how="left")
 
-            prog.progress(80, "Salvando no histórico (Supabase)...")
-            salvar_processamento(
-                pivot_metricas=pivot_m,
-                pivot_cidades=pivot_cidades,
-                data_ref=data_selecionada or date.today(),
-                usuario=usuario
+                df_ent_dash = _ler_uploads(f_ent, {"Scan Station":"Scan Station","Waybill No.":"Waybill No."}) if f_ent else None
+
+                df_meta = None
+                if f_meta:
+                    df_meta = normalizar_colunas(pd.read_excel(f_meta), {"DS":"DS","Meta":"Meta"})
+                    df_meta["DS"] = df_meta["DS"].astype(str).str.strip()
+                    _meta_tmp = df_meta.copy()
+                    meta_raw = df_meta["Meta"]
+                    meta_num = pd.to_numeric(meta_raw, errors="coerce")
+                    if meta_num.isna().any() or (meta_raw.astype(str).str.contains("%", na=False).any()):
+                        meta_str = (meta_raw.astype(str).str.replace("%","",regex=False)
+                                    .str.replace(",",".",regex=False).str.strip())
+                        meta_num = pd.to_numeric(meta_str, errors="coerce")
+                        meta_num = meta_num.where(meta_num <= 1.0, meta_num / 100)
+                    else:
+                        meta_num = meta_num.where(meta_num <= 1.0, meta_num / 100)
+                    df_meta["Meta"] = meta_num.fillna(0.5)
+                    _meta_tmp["Meta"] = df_meta["Meta"]
+                    salvar_metas(_meta_tmp, usuario)
+                    st.toast("✅ Metas atualizadas no banco!", icon="💾")
+                elif tem_metas():
+                    df_meta = carregar_metas()
+
+                prog.progress(32, "Padronizando Scan Stations...")
+                mapa   = construir_mapa_sigla(df_sup)
+                df_rec = filtrar_dados(df_sup, df_rec, mapa)
+                df_out = padronizar_scan_station(df_out, mapa)
+                if df_ent_dash is not None:
+                    df_ent_dash = padronizar_scan_station(df_ent_dash, mapa)
+
+                prog.progress(48, "Calculando volumes por Waybill...")
+                df_merge      = fazer_merge(df_sup, df_rec)
+                pivot         = criar_pivot(df_merge, df_out, df_ent_dash)
+                pivot_cidades = criar_pivot_cidades(df_merge, df_out, df_ent_dash)
+
+                prog.progress(65, "Calculando métricas...")
+                pivot_m = calcular_metricas(pivot, df_meta)
+
+                prog.progress(80, "Salvando no histórico (Supabase)...")
+                salvar_processamento(
+                    pivot_metricas=pivot_m, pivot_cidades=pivot_cidades,
+                    data_ref=data_selecionada or date.today(), usuario=usuario
+                )
+
+                prog.progress(92, "Gerando Excel para download...")
+                pivot_full2, df_cap2, df_met2, df_cou2 = separar_por_regiao(df_merge, pivot_m)
+                base_cols  = [c for c in df_merge.columns if c not in {"SIGLA","_count"}]
+                data_str   = data_selecionada.strftime("%d-%m-%Y") if data_selecionada else ""
+                excel_bytes = exportar_excel_bytes(
+                    base=df_merge[base_cols].copy(), geral=pivot_full2,
+                    capital=df_cap2, metro=df_met2, country=df_cou2,
+                    pivot_cidades=pivot_cidades, data_str=data_str
+                )
+                st.session_state["excel_bytes"]    = excel_bytes
+                st.session_state["excel_filename"] = f"Dashboard_Expedicao_{data_str}.xlsx" if data_str else "Dashboard_Expedicao.xlsx"
+                prog.progress(100, "Concluído!")
+
+                rec_t = int(pivot_m["recebido no DS"].sum())
+                exp_t = int(pivot_m["em rota de entrega"].sum())
+                ent_t = int(pivot_m["Entregas"].sum())
+                tx_t  = exp_t / rec_t if rec_t else 0
+                n_ds  = len(pivot_m)
+                n_ok  = int(pivot_m["Atingiu Meta"].sum())
+                st.success(f"✅ Dashboard salvo para **{_data_lbl}**")
+                st.markdown(f"""
+                <div class="kpi-grid">
+                  <div class="kpi-card c1"><div class="kpi-lbl">Recebido</div><div class="kpi-val">{rec_t:,}</div></div>
+                  <div class="kpi-card c2"><div class="kpi-lbl">Expedido</div><div class="kpi-val">{exp_t:,}</div><div class="kpi-sub">taxa {tx_t:.1%}</div></div>
+                  <div class="kpi-card c3"><div class="kpi-lbl">Entregas</div><div class="kpi-val">{ent_t:,}</div></div>
+                  <div class="kpi-card c4"><div class="kpi-lbl">DS na Meta</div><div class="kpi-val">{n_ok}/{n_ds}</div></div>
+                  <div class="kpi-card c5"><div class="kpi-lbl">DS Abaixo</div><div class="kpi-val">{n_ds-n_ok}</div></div>
+                </div>""", unsafe_allow_html=True)
+                st.info("Vá para **📊 Dashboard** para ver os gráficos completos.")
+            except Exception as e:
+                import traceback
+                prog.progress(0, "Erro")
+                st.error(f"Erro: {e}")
+                with st.expander("Detalhes"):
+                    st.code(traceback.format_exc())
+
+        if "excel_bytes" in st.session_state:
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            st.download_button(
+                label="⬇️  Baixar Dashboard Excel",
+                data=st.session_state["excel_bytes"],
+                file_name=st.session_state.get("excel_filename", "Dashboard_Expedicao.xlsx"),
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                width='stretch', key="dl_dash_excel"
             )
 
-            prog.progress(92, "Gerando Excel para download...")
-            pivot_full2, df_cap2, df_met2, df_cou2 = separar_por_regiao(df_merge, pivot_m)
-            exc_cols  = {"SIGLA", "_count"}
-            base_cols = [c for c in df_merge.columns if c not in exc_cols]
-            data_str  = data_selecionada.strftime("%d-%m-%Y") if data_selecionada else ""
-            excel_bytes = exportar_excel_bytes(
-                base=df_merge[base_cols].copy(),
-                geral=pivot_full2, capital=df_cap2,
-                metro=df_met2,    country=df_cou2,
-                pivot_cidades=pivot_cidades,
-                data_str=data_str
-            )
-            st.session_state["excel_bytes"]    = excel_bytes
-            st.session_state["excel_filename"] = f"Dashboard_Expedicao_{data_str}.xlsx" if data_str else "Dashboard_Expedicao.xlsx"
+    # ──────────────────────────────────────────────
+    #  TAB RECLAMAÇÕES
+    # ──────────────────────────────────────────────
+    with tab_rec:
+        if f_ent:
+            st.info(f"✅ Arquivo Delivered: usando **{len(f_ent)} arquivo(s)** já carregados em Entregas / Delivered acima.")
+        else:
+            st.info("💡 Suba o arquivo Delivered na seção **Entregas / Delivered** acima — ele será reutilizado aqui.")
 
-            prog.progress(100, "Concluído!")
+        st.markdown('<div class="section-label">Arquivos exclusivos de Reclamações</div>',
+                    unsafe_allow_html=True)
 
-            # ── Resumo ────────────────────────────────────────
-            rec_t = int(pivot_m["recebido no DS"].sum())
-            exp_t = int(pivot_m["em rota de entrega"].sum())
-            ent_t = int(pivot_m["Entregas"].sum())
-            tx_t  = exp_t / rec_t if rec_t else 0
-            n_ds  = len(pivot_m)
-            n_ok  = int(pivot_m["Atingiu Meta"].sum())
+        _rc1, _rc2 = st.columns(2, gap="large")
+        with _rc1:
+            st.markdown('<div class="upload-label">Bilhete de Reclamação <span class="badge-r">OBRIGATÓRIO</span></div>'
+                        '<div class="upload-hint">arquivo único</div>', unsafe_allow_html=True)
+            f_bilhete = st.file_uploader("bilhete", type=["xlsx","xls"], key="rc_bilhete",
+                                          label_visibility="collapsed")
 
-            st.success(f"✅ Processamento salvo para **{data_lbl}**")
+            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+            st.markdown('<div class="upload-label">Carta de Porte <span class="badge-r">OBRIGATÓRIO</span></div>'
+                        '<div class="upload-hint">arquivo único — Consulta à Carta de Porte Central</div>',
+                        unsafe_allow_html=True)
+            f_carta = st.file_uploader("carta", type=["xlsx","xls"], key="rc_carta",
+                                        label_visibility="collapsed")
+
+        with _rc2:
+            _arquivos_rc = sum([f_bilhete is not None, f_carta is not None,
+                                (f_ent is not None and len(f_ent) > 0),
+                                (_tem_sup or f_sup is not None)])
             st.markdown(f"""
-            <div class="kpi-grid">
-              <div class="kpi-card c1"><div class="kpi-lbl">Recebido</div>
-                <div class="kpi-val">{rec_t:,}</div></div>
-              <div class="kpi-card c2"><div class="kpi-lbl">Expedido</div>
-                <div class="kpi-val">{exp_t:,}</div>
-                <div class="kpi-sub">taxa {tx_t:.1%}</div></div>
-              <div class="kpi-card c3"><div class="kpi-lbl">Entregas</div>
-                <div class="kpi-val">{ent_t:,}</div></div>
-              <div class="kpi-card c4"><div class="kpi-lbl">DS na Meta</div>
-                <div class="kpi-val">{n_ok}/{n_ds}</div></div>
-              <div class="kpi-card c5"><div class="kpi-lbl">DS Abaixo</div>
-                <div class="kpi-val">{n_ds-n_ok}</div></div>
+            <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:4px'>
+              <div style='font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;
+                          letter-spacing:1px;margin-bottom:14px'>Checklist de arquivos</div>
+              <div style='font-size:13px;line-height:2'>
+                {'✅' if (_tem_sup or f_sup) else '⬜'} Supervisores / Gestão de Bases<br>
+                {'✅' if (f_ent and len(f_ent) > 0) else '⬜'} Delivered (Entregas)<br>
+                {'✅' if f_bilhete else '⬜'} Bilhete de Reclamação<br>
+                {'✅' if f_carta else '⬜'} Carta de Porte
+              </div>
             </div>""", unsafe_allow_html=True)
-            st.info("Vá para **📊 Dashboard** para ver os gráficos completos.")
 
-        except Exception as e:
-            import traceback
-            prog.progress(0, "Erro")
-            st.error(f"Erro: {e}")
-            with st.expander("Detalhes"):
-                st.code(traceback.format_exc())
+        # Botão processar Reclamações
+        st.markdown('<div class="section-label">Processar Reclamações</div>', unsafe_allow_html=True)
+        _pronto_rc = bool(f_bilhete and f_carta and (_tem_sup or f_sup))
+        if not _pronto_rc:
+            st.info("Suba Bilhete + Carta de Porte (+ Supervisores se 1ª vez).")
 
-    # ── Download Excel (persiste após processamento) ──────────
-    if "excel_bytes" in st.session_state:
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        st.markdown('<div class="section-label">Download Excel</div>', unsafe_allow_html=True)
-        st.download_button(
-            label="⬇️  Baixar Dashboard Excel",
-            data=st.session_state["excel_bytes"],
-            file_name=st.session_state.get("excel_filename", "Dashboard_Expedicao.xlsx"),
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            width='stretch',
-        )
+        if st.button("⚙️  PROCESSAR RECLAMAÇÕES", disabled=not _pronto_rc,
+                     width='stretch', key="btn_proc_rc"):
+            import io as _io, threading, traceback as _tb
+
+            # Monta gestao a partir do f_sup carregado ou banco
+            if f_sup:
+                _gestao_bytes = (f_sup.name, f_sup.read()); f_sup.seek(0)
+            else:
+                _df_sup_rc = carregar_supervisores()
+                _buf = _io.BytesIO(); _df_sup_rc.to_excel(_buf, index=False); _buf.seek(0)
+                _gestao_bytes = ("supervisores.xlsx", _buf.read())
+
+            # Monta delivered — usa o f_ent compartilhado (1º arquivo)
+            _delivered_bytes = None
+            if f_ent and len(f_ent) > 0:
+                _d = f_ent[0]; _delivered_bytes = (_d.name, _d.read()); _d.seek(0)
+
+            files_bytes = {
+                "bilhete":   (f_bilhete.name, f_bilhete.read()),
+                "carta":     (f_carta.name,   f_carta.read()),
+                "gestao":    _gestao_bytes,
+                "delivered": _delivered_bytes,
+            }
+
+            st.session_state["rc_job"] = {
+                "rodando": True, "etapa": "Iniciando…",
+                "ok": None, "res": None, "err": None,
+            }
+            job_ref = st.session_state["rc_job"]
+
+            def _worker_rc_hub(job, files_bytes):
+                from modulos.reclamacoes import (
+                    carregar_bilhete, adicionar_supervisor,
+                    criar_colunas_auxiliares, cruzar_carta_porte,
+                    limpar_dados, separar_periodo, agregar_por_supervisor,
+                    agregar_por_station, top5_motoristas,
+                    carregar_delivered, gerar_excel
+                )
+                from database import listar_motoristas_inativos
+
+                def mk(key):
+                    if files_bytes[key] is None:
+                        return None
+                    bio = _io.BytesIO(files_bytes[key][1])
+                    bio.name = files_bytes[key][0]
+                    return bio
+
+                try:
+                    job["etapa"] = "📥 Carregando Bilhete..."
+                    inativos = listar_motoristas_inativos()
+                    df = carregar_bilhete(mk("bilhete"))
+
+                    job["etapa"] = "👤 Adicionando supervisores..."
+                    df = adicionar_supervisor(df, mk("gestao"))
+
+                    job["etapa"] = "🔧 Colunas auxiliares..."
+                    df = criar_colunas_auxiliares(df)
+
+                    job["etapa"] = "🚗 Cruzando Carta de Porte..."
+                    df = cruzar_carta_porte(df, mk("carta"))
+
+                    job["etapa"] = "🧹 Limpando e separando período..."
+                    df = limpar_dados(df)
+                    df_dia, df_mes, data_ref = separar_periodo(df)
+
+                    job["etapa"] = "📊 Agregando dados..."
+                    agg_sup = agregar_por_supervisor(df_dia, df_mes)
+                    agg_sta = agregar_por_station(df_dia, df_mes)
+                    top5    = top5_motoristas(df_dia, inativos=inativos)
+
+                    job["etapa"] = "📦 Carregando entregas..."
+                    delivered_file = mk("delivered")
+                    gestao_file2   = mk("gestao")
+                    if delivered_file:
+                        est, esup = carregar_delivered(delivered_file, gestao_file2)
+                        df_del_raw = pd.read_excel(_io.BytesIO(files_bytes["delivered"][1]), dtype=str)
+                    else:
+                        import pandas as _pd
+                        est = _pd.DataFrame(columns=["Delivery Station","Total Entregas"])
+                        esup = _pd.DataFrame(columns=["Supervisor","Total Entregas"])
+                        df_del_raw = None
+
+                    job["etapa"] = "💾 Gerando Excel..."
+                    excel_bytes = gerar_excel(
+                        df_base=df, agg_sup=agg_sup, agg_sta=agg_sta,
+                        top5=top5, entregas_sta=est, entregas_sup=esup,
+                        data_ref=data_ref, df_delivered_raw=df_del_raw
+                    )
+                    job["ok"]  = True
+                    job["res"] = {
+                        "excel_bytes":  excel_bytes,
+                        "nome_arquivo": f"reclamacoes_{data_ref.strftime('%Y%m%d')}.xlsx",
+                        "n_registros":  len(df),
+                        "n_sup":        agg_sup["Supervisor"].nunique(),
+                        "n_sta":        agg_sta["Inventory Station"].nunique(),
+                        "n_mot":        int(df["Motorista"].notna().sum()),
+                        "top5":         top5,
+                        "agg_sup":      agg_sup,
+                        "agg_sta":      agg_sta,
+                        "inativos":     inativos,
+                    }
+                except Exception as e:
+                    job["ok"]  = False
+                    job["err"] = _tb.format_exc()
+                finally:
+                    job["rodando"] = False
+
+            threading.Thread(target=_worker_rc_hub, args=(job_ref, files_bytes), daemon=True).start()
+            st.rerun()
+
+        # Polling e resultado
+        _rc_job     = st.session_state.get("rc_job", {})
+        _rc_rodando = _rc_job.get("rodando", False)
+
+        if _rc_rodando:
+            st.info(f"⏳ {_rc_job.get('etapa','Processando...')}")
+            st.progress(0.5)
+            _time.sleep(1)
+            st.rerun()
+
+        _rc_res = _rc_job.get("res")
+        if _rc_job.get("ok") is True and _rc_res and not _rc_rodando:
+            if _rc_res.get("inativos"):
+                st.info(f"ℹ️ {len(_rc_res['inativos'])} motorista(s) inativo(s) excluído(s) do Top 5.")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total registros",  _rc_res["n_registros"])
+            c2.metric("Supervisores",     _rc_res["n_sup"])
+            c3.metric("Stations",         _rc_res["n_sta"])
+            c4.metric("Motoristas ID'd",  _rc_res["n_mot"])
+
+            _col_a, _col_b = st.columns(2)
+            with _col_a:
+                st.markdown("**Por Supervisor (dia)**")
+                st.dataframe(_rc_res["agg_sup"].head(10), width='stretch')
+            with _col_b:
+                st.markdown("**Por Station (dia)**")
+                st.dataframe(_rc_res["agg_sta"].head(10), width='stretch')
+
+            st.download_button(
+                label="⬇️ Baixar Relatório de Reclamações",
+                data=_rc_res["excel_bytes"],
+                file_name=_rc_res["nome_arquivo"],
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                width='stretch', key="dl_rc_excel"
+            )
+
+        elif _rc_job.get("ok") is False and not _rc_rodando:
+            st.error("❌ Erro durante o processamento:")
+            with st.expander("Ver detalhes"):
+                st.code(_rc_job.get("err",""))
 
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA: HISTÓRICO
