@@ -500,7 +500,9 @@ def render(usuario: str):
             st.info(f"📦 {tamanho_total:.0f} MB detectados. Processamento pode levar até 1 minuto.")
 
     # ── Estado do job em background ───────────────────────────
-    job = st.session_state.get("triagem_job", {})
+    if "triagem_job" not in st.session_state:
+        st.session_state["triagem_job"] = {}
+    job = st.session_state["triagem_job"]
     rodando = job.get("rodando", False)
 
     if st.button("▶  EXECUTAR ANÁLISE", disabled=(not pronto or rodando), use_container_width=True):
