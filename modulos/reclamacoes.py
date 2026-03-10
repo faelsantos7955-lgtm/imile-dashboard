@@ -519,7 +519,9 @@ def render(is_admin=True):
             st.success("✅ Todos os arquivos carregados! Clique em Processar.")
 
             # ── Estado do job em background ────────────────────
-            rc_job = st.session_state.get("rc_job", {})
+            if "rc_job" not in st.session_state:
+                st.session_state["rc_job"] = {}
+            rc_job = st.session_state["rc_job"]
             rc_rodando = rc_job.get("rodando", False)
 
             if st.button("⚙️ Processar e gerar relatório", use_container_width=True,
@@ -539,15 +541,15 @@ def render(is_admin=True):
                     "err":     None,
                 }
 
-                def _worker_rc(files_bytes):
-                    import io, traceback as tb
-                    job = st.session_state["rc_job"]
+                # Passa o dict por referência — thread modifica direto sem tocar session_state
+                import threading, io, traceback as tb
+                job_ref = st.session_state["rc_job"]
 
+                def _worker_rc(job, files_bytes):
                     def mk(key):
                         bio = io.BytesIO(files_bytes[key][1])
                         bio.name = files_bytes[key][0]
                         return bio
-
                     try:
                         job["etapa"] = "📥 Carregando Bilhete de Reclamação..."
                         inativos = listar_motoristas_inativos()
@@ -581,7 +583,6 @@ def render(is_admin=True):
                             top5=top5, entregas_sta=est, entregas_sup=esup,
                             data_ref=data_ref, df_delivered_raw=df_del_raw
                         )
-
                         job["ok"]  = True
                         job["res"] = {
                             "excel_bytes": excel_bytes,
@@ -601,8 +602,7 @@ def render(is_admin=True):
                     finally:
                         job["rodando"] = False
 
-                import threading
-                threading.Thread(target=_worker_rc, args=(files_bytes,), daemon=True).start()
+                threading.Thread(target=_worker_rc, args=(job_ref, files_bytes), daemon=True).start()
                 st.rerun()
 
             # ── Polling enquanto processa ──────────────────────

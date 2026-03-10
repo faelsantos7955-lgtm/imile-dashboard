@@ -521,17 +521,16 @@ def render(usuario: str):
         }
         st.session_state.pop("triagem_res", None)
 
-        def _worker(scans_bytes, bases_bytes):
-            import io
-            job = st.session_state["triagem_job"]
+        import threading, io
+        job_ref = st.session_state["triagem_job"]
 
+        def _worker(job, scans_bytes, bases_bytes):
             def log_cb(msg):
                 job["log"].append(msg)
 
             def prog_cb(v):
                 job["progresso"] = v
 
-            # Reconstrói file-like objects a partir dos bytes
             scan_files = [io.BytesIO(b) for _, b in scans_bytes]
             for i, (name, _) in enumerate(scans_bytes):
                 scan_files[i].name = name
@@ -549,9 +548,7 @@ def render(usuario: str):
             finally:
                 job["rodando"] = False
 
-        import threading
-        t = threading.Thread(target=_worker, args=(scans_bytes, bases_bytes), daemon=True)
-        t.start()
+        threading.Thread(target=_worker, args=(job_ref, scans_bytes, bases_bytes), daemon=True).start()
         st.rerun()
 
     # ── Polling enquanto processa ──────────────────────────────
