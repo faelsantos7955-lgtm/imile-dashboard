@@ -518,82 +518,137 @@ def render(is_admin=True):
         else:
             st.success("✅ Todos os arquivos carregados! Clique em Processar.")
 
-            if st.button("⚙️ Processar e gerar relatório", use_container_width=True, key="rc_processar"):
-                try:
-                    inativos = listar_motoristas_inativos()
-                    with st.status("Processando...", expanded=True) as status:
-                        st.write("📥 Carregando Bilhete de Reclamação...")
-                        df = carregar_bilhete(f_bilhete)
+            # ── Estado do job em background ────────────────────
+            rc_job = st.session_state.get("rc_job", {})
+            rc_rodando = rc_job.get("rodando", False)
 
-                        st.write("👤 Adicionando supervisores...")
-                        df = adicionar_supervisor(df, f_gestao)
+            if st.button("⚙️ Processar e gerar relatório", use_container_width=True,
+                         key="rc_processar", disabled=rc_rodando):
+                # Lê bytes antes de passar para thread
+                files_bytes = {
+                    "bilhete":   (f_bilhete.name,   f_bilhete.read()),
+                    "carta":     (f_carta.name,     f_carta.read()),
+                    "gestao":    (f_gestao.name,    f_gestao.read()),
+                    "delivered": (f_delivered.name, f_delivered.read()),
+                }
+                st.session_state["rc_job"] = {
+                    "rodando": True,
+                    "etapa":   "Iniciando…",
+                    "ok":      None,
+                    "res":     None,
+                    "err":     None,
+                }
 
-                        st.write("🔧 Criando colunas auxiliares...")
+                def _worker_rc(files_bytes):
+                    import io, traceback as tb
+                    job = st.session_state["rc_job"]
+
+                    def mk(key):
+                        bio = io.BytesIO(files_bytes[key][1])
+                        bio.name = files_bytes[key][0]
+                        return bio
+
+                    try:
+                        job["etapa"] = "📥 Carregando Bilhete de Reclamação..."
+                        inativos = listar_motoristas_inativos()
+                        df = carregar_bilhete(mk("bilhete"))
+
+                        job["etapa"] = "👤 Adicionando supervisores..."
+                        df = adicionar_supervisor(df, mk("gestao"))
+
+                        job["etapa"] = "🔧 Criando colunas auxiliares..."
                         df = criar_colunas_auxiliares(df)
 
-                        st.write("🚗 Cruzando com Carta de Porte...")
-                        df = cruzar_carta_porte(df, f_carta)
+                        job["etapa"] = "🚗 Cruzando com Carta de Porte..."
+                        df = cruzar_carta_porte(df, mk("carta"))
 
-                        st.write("🧹 Limpando dados...")
+                        job["etapa"] = "🧹 Limpando e separando período..."
                         df = limpar_dados(df)
-
-                        st.write("📅 Separando período...")
                         df_dia, df_mes, data_ref = separar_periodo(df)
 
-                        st.write("📊 Agregando dados...")
+                        job["etapa"] = "📊 Agregando dados..."
                         agg_sup = agregar_por_supervisor(df_dia, df_mes)
                         agg_sta = agregar_por_station(df_dia, df_mes)
                         top5    = top5_motoristas(df_dia, inativos=inativos)
 
-                        st.write("📦 Carregando entregas...")
-                        f_delivered.seek(0)
-                        df_del_raw = pd.read_excel(f_delivered, dtype=str)
-                        f_delivered.seek(0); f_gestao.seek(0)
-                        est, esup = carregar_delivered(f_delivered, f_gestao)
+                        job["etapa"] = "📦 Carregando entregas..."
+                        est, esup = carregar_delivered(mk("delivered"), mk("gestao"))
+                        df_del_raw = pd.read_excel(io.BytesIO(files_bytes["delivered"][1]), dtype=str)
 
-                        st.write("💾 Gerando Excel...")
+                        job["etapa"] = "💾 Gerando Excel..."
                         excel_bytes = gerar_excel(
                             df_base=df, agg_sup=agg_sup, agg_sta=agg_sta,
                             top5=top5, entregas_sta=est, entregas_sup=esup,
                             data_ref=data_ref, df_delivered_raw=df_del_raw
                         )
-                        status.update(label="✅ Concluído!", state="complete")
 
-                    if inativos:
-                        st.info(f"ℹ️ {len(inativos)} motorista(s) inativo(s) excluído(s) do Top 5.")
+                        job["ok"]  = True
+                        job["res"] = {
+                            "excel_bytes": excel_bytes,
+                            "nome_arquivo": f"reclamacoes_{data_ref.strftime('%Y%m%d')}.xlsx",
+                            "n_registros": len(df),
+                            "n_sup": agg_sup["Supervisor"].nunique(),
+                            "n_sta": agg_sta["Inventory Station"].nunique(),
+                            "n_mot": int(df["Motorista"].notna().sum()),
+                            "top5": top5,
+                            "agg_sup": agg_sup,
+                            "agg_sta": agg_sta,
+                            "inativos": inativos,
+                        }
+                    except Exception as e:
+                        job["ok"]  = False
+                        job["err"] = tb.format_exc()
+                    finally:
+                        job["rodando"] = False
 
-                    st.markdown("### 📊 Resumo")
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Total registros", len(df))
-                    c2.metric("Supervisores",    agg_sup["Supervisor"].nunique())
-                    c3.metric("Stations",        agg_sta["Inventory Station"].nunique())
-                    c4.metric("Motoristas ID'd", df["Motorista"].notna().sum())
+                import threading
+                threading.Thread(target=_worker_rc, args=(files_bytes,), daemon=True).start()
+                st.rerun()
 
-                    st.markdown("### 🏆 Top 5 Motoristas")
-                    st.dataframe(top5, use_container_width=True)
+            # ── Polling enquanto processa ──────────────────────
+            if rc_rodando:
+                etapa = rc_job.get("etapa", "Processando…")
+                st.info(f"⏳ {etapa}")
+                st.progress(0.5)
+                import time; time.sleep(1)
+                st.rerun()
 
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.markdown("**Por Supervisor (dia)**")
-                        st.dataframe(agg_sup.head(10), use_container_width=True)
-                    with col_b:
-                        st.markdown("**Por Station (dia)**")
-                        st.dataframe(agg_sta.head(10), use_container_width=True)
+            # ── Resultado quando terminar ──────────────────────
+            rc_res = rc_job.get("res")
+            if rc_job.get("ok") is True and rc_res and not rc_rodando:
+                if rc_res.get("inativos"):
+                    st.info(f"ℹ️ {len(rc_res['inativos'])} motorista(s) inativo(s) excluído(s) do Top 5.")
 
-                    nome_arquivo = f"reclamacoes_{data_ref.strftime('%Y%m%d')}.xlsx"
-                    st.download_button(
-                        label="⬇️ Baixar Relatório Excel",
-                        data=excel_bytes,
-                        file_name=nome_arquivo,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
+                st.markdown("### 📊 Resumo")
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Total registros", rc_res["n_registros"])
+                c2.metric("Supervisores",    rc_res["n_sup"])
+                c3.metric("Stations",        rc_res["n_sta"])
+                c4.metric("Motoristas ID'd", rc_res["n_mot"])
 
-                except Exception as e:
-                    st.error(f"❌ Erro: {e}")
-                    import traceback
-                    with st.expander("Ver detalhes do erro"):
-                        st.code(traceback.format_exc())
+                st.markdown("### 🏆 Top 5 Motoristas")
+                st.dataframe(rc_res["top5"], use_container_width=True)
+
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.markdown("**Por Supervisor (dia)**")
+                    st.dataframe(rc_res["agg_sup"].head(10), use_container_width=True)
+                with col_b:
+                    st.markdown("**Por Station (dia)**")
+                    st.dataframe(rc_res["agg_sta"].head(10), use_container_width=True)
+
+                st.download_button(
+                    label="⬇️ Baixar Relatório Excel",
+                    data=rc_res["excel_bytes"],
+                    file_name=rc_res["nome_arquivo"],
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            elif rc_job.get("ok") is False and not rc_rodando:
+                st.error("❌ Erro durante o processamento:")
+                with st.expander("Ver detalhes do erro"):
+                    st.code(rc_job.get("err", ""))
 
 
 # ══════════════════════════════════════════════════════════════

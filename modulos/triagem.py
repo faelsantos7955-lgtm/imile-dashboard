@@ -90,7 +90,13 @@ def _ler_loading_scan(file_obj, log_cb):
     if not aba:
         aba = sheets[0]
 
-    df = _limpar(pd.read_excel(file_obj, sheet_name=aba, dtype=str))
+    # Lê só as colunas necessárias para economizar memória
+    try:
+        df = _limpar(pd.read_excel(file_obj, sheet_name=aba, dtype=str,
+                                    usecols=lambda c: any(k in str(c).lower()
+                                    for k in ["waybill","loading","destination","delivery","tipo","type"])))
+    except Exception:
+        df = _limpar(pd.read_excel(file_obj, sheet_name=aba, dtype=str))
 
     for col in [COL_WB, COL_LC, COL_DST, COL_DEL]:
         if col not in df.columns:
@@ -129,6 +135,11 @@ def run_analysis(scan_files, bases_file, log_cb, progress_cb):
         log_cb(f"✔ {len(df):,} registros no total")
         progress_cb(38)
 
+        # Converte colunas com valores repetidos para category (economiza ~60% de RAM)
+        for col in [COL_LC, COL_DST, COL_DEL, "__arquivo__"]:
+            if col in df.columns:
+                df[col] = df[col].astype("category")
+
         # 3. OUT BOUND vetorizado
         log_cb("🔍 Calculando OUT BOUND…")
         df = df.merge(
@@ -161,31 +172,39 @@ def run_analysis(scan_files, bases_file, log_cb, progress_cb):
         taxa     = round(qtd_ok / total * 100, 1) if total else 0
         log_cb(f"✔ OK: {qtd_ok:,}  |  Erro: {qtd_erro:,}  |  Fora: {qtd_fora:,}  |  Taxa: {taxa}%")
 
-        # 5. Agregações
-        def metricas(g):
-            t  = g[COL_WB].count()
-            ok = (g["OUT BOUND"] == "OK").sum()
-            er = (g["OUT BOUND"] == "ERRO EXPEDIÇÃO").sum()
-            fa = (g["OUT BOUND"] == "FORA ABRANGÊNCIA").sum()
-            return pd.Series({
-                "Total Expedido":   t,
-                "Triagem OK":       ok,
-                "Triagem NOK":      er,
-                "Fora Abrangência": fa,
-                "Taxa (%)":         round(ok / t * 100, 2) if t else 0,
-            })
-
+        # 5. Agregações vetorizadas (muito mais rápido que apply)
         log_cb("📊 Agregando relatórios…")
-        r_dc   = df.groupby(COL_LC,          dropna=False).apply(metricas).reset_index()
-        r_arq  = (df.groupby("__arquivo__",  dropna=False)
-                    .apply(metricas).reset_index()
-                    .rename(columns={"__arquivo__": "Arquivo"}))
-        r_sup  = pd.DataFrame()
+
+        # Cria colunas binárias vetorizadas
+        df["_ok"] = (df["OUT BOUND"] == "OK").astype("int8")
+        df["_er"] = (df["OUT BOUND"] == "ERRO EXPEDIÇÃO").astype("int8")
+        df["_fa"] = (df["OUT BOUND"] == "FORA ABRANGÊNCIA").astype("int8")
+
+        def agg_rapida(group_col, rename=None):
+            """Agrega métricas por coluna usando soma vetorizada."""
+            g = df.groupby(group_col, dropna=False).agg(
+                Total_Expedido=(COL_WB, "count"),
+                Triagem_OK=("_ok", "sum"),
+                Triagem_NOK=("_er", "sum"),
+                Fora_Abrangencia=("_fa", "sum"),
+            ).reset_index()
+            g.columns = [group_col] + ["Total Expedido","Triagem OK","Triagem NOK","Fora Abrangência"]
+            g["Taxa (%)"] = (g["Triagem OK"] / g["Total Expedido"].replace(0, np.nan) * 100).round(2).fillna(0)
+            if rename:
+                g = g.rename(columns={group_col: rename})
+            return g
+
+        r_dc  = agg_rapida(COL_LC)
+        r_arq = agg_rapida("__arquivo__", rename="Arquivo")
+        r_sup = pd.DataFrame()
         if tem_supervisor and "SUPERVISOR" in df.columns:
-            r_sup = df.groupby("SUPERVISOR", dropna=False).apply(metricas).reset_index()
+            r_sup = agg_rapida("SUPERVISOR")
         r_tipo = pd.DataFrame()
         if COL_TIPO in df.columns:
-            r_tipo = df.groupby(COL_TIPO, dropna=False).apply(metricas).reset_index()
+            r_tipo = agg_rapida(COL_TIPO)
+
+        # Remove colunas auxiliares
+        df.drop(columns=["_ok","_er","_fa"], inplace=True, errors="ignore")
 
         df_erro  = df[df["OUT BOUND"] == "ERRO EXPEDIÇÃO"]
         top5_ds  = (df_erro.groupby(COL_DST, dropna=False)[COL_WB]
@@ -250,6 +269,10 @@ def _gerar_excel(df, r_dc, r_arq, r_sup, r_tipo, top5_ds,
     def df_to_ws(ws, df_in, start_row=1):
         """Escreve DataFrame em worksheet usando append() — muito mais rápido que iterrows."""
         import numpy as np
+        # Converte category para str antes de escrever
+        df_in = df_in.copy()
+        for col in df_in.select_dtypes(include="category").columns:
+            df_in[col] = df_in[col].astype(str)
         # Move para a linha correta se start_row > 1
         for _ in range(start_row - 1):
             ws.append([])
@@ -288,10 +311,15 @@ def _gerar_excel(df, r_dc, r_arq, r_sup, r_tipo, top5_ds,
                 pass
     auto_w(ws_dc); ws_dc.freeze_panes = "A2"
 
-    # ── Aba Base Consolidada (apenas ERROS para economizar memória) ─
+    # ── Aba Base Consolidada (apenas ERROS, limitado a 100k linhas) ─
     ws_base = wb.create_sheet("Base Consolidada")
-    df_exp  = df[df["OUT BOUND"] != "OK"].drop(columns=["__BASE_PAI_DST__"], errors="ignore").copy()
-    log_cb(f"   📋 {len(df_exp):,} registros com erro/fora abrangência na aba Base Consolidada")
+    df_exp  = df[df["OUT BOUND"] != "OK"].drop(columns=["__BASE_PAI_DST__","_ok","_er","_fa"], errors="ignore").copy()
+    MAX_ROWS = 100_000
+    if len(df_exp) > MAX_ROWS:
+        log_cb(f"   ⚠️ {len(df_exp):,} erros — limitando a {MAX_ROWS:,} linhas no Excel para evitar travamento")
+        df_exp = df_exp.head(MAX_ROWS)
+    else:
+        log_cb(f"   📋 {len(df_exp):,} registros com erro/fora abrangência na aba Base Consolidada")
     df_to_ws(ws_base, df_exp, start_row=1)
     fmt_hdr(ws_base)
     try:
@@ -463,28 +491,87 @@ def render(usuario: str):
     if not pronto:
         st.info("Faça o upload dos 2 arquivos obrigatórios.")
 
-    if st.button("▶  EXECUTAR ANÁLISE", disabled=not pronto, use_container_width=True):
-        log_lines = []
-        prog_bar  = st.progress(0, text="Iniciando…")
+    # Aviso de arquivos grandes
+    if f_scans:
+        tamanho_total = sum(getattr(f, "size", 0) for f in f_scans) / (1024*1024)
+        if tamanho_total > 30:
+            st.warning(f"⚠️ Arquivos grandes ({tamanho_total:.0f} MB total). O processamento pode demorar alguns minutos.")
+        elif tamanho_total > 10:
+            st.info(f"📦 {tamanho_total:.0f} MB detectados. Processamento pode levar até 1 minuto.")
 
-        def log_cb(msg):
-            log_lines.append(msg)
+    # ── Estado do job em background ───────────────────────────
+    job = st.session_state.get("triagem_job", {})
+    rodando = job.get("rodando", False)
 
-        def prog_cb(v):
-            prog_bar.progress(v, text=f"{v}% concluído…" if v < 100 else "✔ Concluído!")
+    if st.button("▶  EXECUTAR ANÁLISE", disabled=(not pronto or rodando), use_container_width=True):
+        # Lê os bytes dos arquivos ANTES de passar para a thread
+        # (Streamlit invalida os file objects fora da thread principal)
+        scans_bytes = [(f.name, f.read()) for f in f_scans]
+        bases_bytes = (f_bases.name, f_bases.read())
 
-        with st.spinner("Processando…"):
-            ok, res, err = run_analysis(f_scans, f_bases, log_cb, prog_cb)
+        st.session_state["triagem_job"] = {
+            "rodando": True,
+            "progresso": 0,
+            "log": [],
+            "ok": None,
+            "res": None,
+            "err": None,
+        }
+        st.session_state.pop("triagem_res", None)
 
-        if not ok:
+        def _worker(scans_bytes, bases_bytes):
+            import io
+            job = st.session_state["triagem_job"]
+
+            def log_cb(msg):
+                job["log"].append(msg)
+
+            def prog_cb(v):
+                job["progresso"] = v
+
+            # Reconstrói file-like objects a partir dos bytes
+            scan_files = [io.BytesIO(b) for _, b in scans_bytes]
+            for i, (name, _) in enumerate(scans_bytes):
+                scan_files[i].name = name
+            bases_io = io.BytesIO(bases_bytes[1])
+            bases_io.name = bases_bytes[0]
+
+            try:
+                ok, res, err = run_analysis(scan_files, bases_io, log_cb, prog_cb)
+                job["ok"]  = ok
+                job["res"] = res
+                job["err"] = err
+            except Exception as e:
+                job["ok"]  = False
+                job["err"] = str(e)
+            finally:
+                job["rodando"] = False
+
+        import threading
+        t = threading.Thread(target=_worker, args=(scans_bytes, bases_bytes), daemon=True)
+        t.start()
+        st.rerun()
+
+    # ── Polling enquanto processa ──────────────────────────────
+    if rodando:
+        prog = job.get("progresso", 0)
+        st.progress(prog / 100, text=f"Processando… {prog}%")
+        with st.expander("📋 Log em tempo real", expanded=True):
+            st.code("\n".join(job.get("log", [])) or "Iniciando…")
+        import time; time.sleep(1)
+        st.rerun()
+
+    # ── Resultado quando terminar ──────────────────────────────
+    if job.get("ok") is not None and not rodando:
+        if not job["ok"]:
             st.error("Erro durante a análise:")
-            st.code(err)
+            st.code(job["err"])
         else:
-            st.session_state["triagem_res"] = res
+            st.session_state["triagem_res"] = job["res"]
+            st.session_state["triagem_job"] = {}  # limpa job
 
-        # Log
-        with st.expander("📋 Log de execução", expanded=not ok):
-            st.code("\n".join(log_lines))
+        with st.expander("📋 Log de execução", expanded=not job.get("ok", True)):
+            st.code("\n".join(job.get("log", [])))
 
     # ── Resultados ────────────────────────────────────────────
     res = st.session_state.get("triagem_res")
