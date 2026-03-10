@@ -153,13 +153,31 @@ div[data-testid="stButton"] > button:hover {{
 
 /* Botão ghost (Esqueci senha) */
 .btn-ghost div[data-testid="stButton"] > button {{
-    background:transparent!important;color:#475569!important;
-    border:none!important;box-shadow:none!important;
-    font-size:12px!important;padding:4px 8px!important;
-    width:auto!important;font-weight:500!important;
+    background:transparent!important;
+    color:#475569!important;
+    border:none!important;
+    box-shadow:none!important;
+    font-size:12px!important;
+    padding:2px 0!important;
+    width:auto!important;
+    min-height:unset!important;
+    height:auto!important;
+    font-weight:400!important;
+    text-decoration:underline!important;
+    text-underline-offset:3px!important;
+    letter-spacing:0!important;
+    line-height:1.4!important;
+    display:inline!important;
 }}
 .btn-ghost div[data-testid="stButton"] > button:hover {{
-    color:#94a3b8!important;transform:none!important;box-shadow:none!important;
+    color:#94a3b8!important;
+    transform:none!important;
+    box-shadow:none!important;
+    background:transparent!important;
+}}
+.btn-ghost div[data-testid="stButton"] {{
+    width:auto!important;
+    display:inline-block!important;
 }}
 
 /* ── Divisor ── */
@@ -395,12 +413,12 @@ def pagina_login():
         email = st.text_input("Email", placeholder="seu@email.com", key="l_email")
         senha = st.text_input("Senha", placeholder="••••••••", type="password", key="l_senha")
 
-        _, cf = st.columns([1, 1])
-        with cf:
-            st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
-            if st.button("Esqueci a senha", key="btn_forgot"):
-                st.session_state["auth_page"] = "forgot"; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:right;margin:-8px 0 12px">'
+                    '<div class="btn-ghost" style="display:inline-block">',
+                    unsafe_allow_html=True)
+        if st.button("Esqueci a senha", key="btn_forgot"):
+            st.session_state["auth_page"] = "forgot"; st.rerun()
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
         if st.button("Entrar no portal →", key="btn_login", use_container_width=True):
             if not email or not senha:
