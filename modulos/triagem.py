@@ -542,12 +542,14 @@ def render(usuario: str, is_admin: bool = False):
       <p>Análise de Erros de Triagem DC × DS — OUT BOUND</p></div>
     </div>""", unsafe_allow_html=True)
 
-    # Usuários não-admin veem apenas o último resultado do banco
-    if not is_admin:
-        _render_triagem_viewer()
-        return
+    # Todos os usuários veem o viewer (dados do banco)
+    # Admin vê um aviso sobre o processador local
+    if is_admin:
+        st.info("💻 Para processar novos dados, use o **processar.py** local na máquina do admin.")
+    _render_triagem_viewer()
+    return
 
-    # ── Uploads ───────────────────────────────────────────────
+    # ── Uploads (desativado — usar processar.py local) ─────────
     st.markdown('<div class="section-label">Arquivos de entrada</div>',
                 unsafe_allow_html=True)
     col1, col2 = st.columns(2, gap="large")

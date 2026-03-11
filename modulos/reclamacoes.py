@@ -557,19 +557,21 @@ def render(is_admin=True):
       <p>Análise de Tickets de Fake Delivery · D-1</p></div>
     </div>""", unsafe_allow_html=True)
 
-    if not is_admin:
+    # Todos os usuários veem o viewer (dados do banco)
+    if is_admin:
+        aba1, aba2 = st.tabs(["📊 Último Relatório", "🚗 Gestão de Motoristas"])
+        with aba1:
+            st.info("💻 Para processar novos dados, use o **processar.py** local na máquina do admin.")
+            _render_reclamacoes_viewer()
+        with aba2:
+            _render_gestao_motoristas(st, get_motoristas_status,
+                                       upsert_motorista_status, listar_motoristas_inativos)
+    else:
         _render_reclamacoes_viewer()
-        return
+    return
 
-    aba1, aba2 = st.tabs(["⚙️ Processar Relatório", "🚗 Gestão de Motoristas"])
-
-    # ── ABA 2: Gestão de Motoristas ────────────────────────────
-    with aba2:
-        _render_gestao_motoristas(st, get_motoristas_status,
-                                   upsert_motorista_status, listar_motoristas_inativos)
-
-    # ── ABA 1: Processar ───────────────────────────────────────
-    with aba1:
+    # ── Upload (desativado — usar processar.py local) ──────────
+    if False:
         st.info("📂 Faça upload dos 4 arquivos abaixo para gerar o relatório.")
 
         col1, col2 = st.columns(2)
