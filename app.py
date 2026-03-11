@@ -439,10 +439,9 @@ elif pagina == "📤 Upload / Processar":
 
     _col_sh1, _col_sh2 = st.columns(2, gap="large")
     with _col_sh1:
+        _badge_sup = '<span class="badge-o">✅ JÁ SALVO</span>' if _tem_sup else '<span class="badge-r">OBRIGATÓRIO 1ª vez</span>'
         st.markdown(
-            f'<div class="upload-label">Supervisores / Gestão de Bases '
-            f'{"<span class=\\"badge-o\\">✅ JÁ SALVO</span>" if _tem_sup else "<span class=\\"badge-r\\">OBRIGATÓRIO 1ª vez</span>"}'
-            f'</div>'
+            f'<div class="upload-label">Supervisores / Gestão de Bases {_badge_sup}</div>'
             f'<div class="upload-hint">colunas: SIGLA, REGION, SUPERVISOR</div>',
             unsafe_allow_html=True)
         f_sup = st.file_uploader("sup", type=["xlsx","xls"], key="sup",
@@ -462,7 +461,7 @@ elif pagina == "📤 Upload / Processar":
     # ══════════════════════════════════════════════
     #  BLOCO 2 — TABS POR MÓDULO
     # ══════════════════════════════════════════════
-    tab_dash, tab_rec = st.tabs(["📊 Dashboard", "📋 Reclamações"])
+    tab_dash, tab_rec, tab_tri = st.tabs(["📊 Dashboard", "📋 Reclamações", "🔀 Triagem DC×DS"])
 
     # ──────────────────────────────────────────────
     #  TAB DASHBOARD
@@ -849,6 +848,168 @@ elif pagina == "📤 Upload / Processar":
             st.error("❌ Erro durante o processamento:")
             with st.expander("Ver detalhes"):
                 st.code(_rc_job.get("err",""))
+
+    # ──────────────────────────────────────────────
+    #  TAB TRIAGEM DC×DS
+    # ──────────────────────────────────────────────
+    with tab_tri:
+        st.markdown('<div class="section-label">Arquivos exclusivos de Triagem</div>',
+                    unsafe_allow_html=True)
+
+        _tr1, _tr2 = st.columns(2, gap="large")
+        with _tr1:
+            st.markdown('<div class="upload-label">Loading Scan(s) <span class="badge-r">OBRIGATÓRIO</span></div>'
+                        '<div class="upload-hint">1 ou mais arquivos · Waybill No. | Loading station | Destination Statio | Delivery Station</div>',
+                        unsafe_allow_html=True)
+            f_scans = st.file_uploader("scans", type=["xlsx","xls"], key="tr_scans",
+                                        accept_multiple_files=True, label_visibility="collapsed")
+
+        with _tr2:
+            st.markdown('<div class="upload-label">Arquivo Bases <span class="badge-r">OBRIGATÓRIO</span></div>'
+                        '<div class="upload-hint">aba "Base Erro Exp" · colunas: BASE | BASE_PAI | SUPERVISOR</div>',
+                        unsafe_allow_html=True)
+            f_bases = st.file_uploader("bases", type=["xlsx","xls"], key="tr_bases",
+                                        label_visibility="collapsed")
+
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if f_scans:
+                _tam = sum(getattr(f, "size", 0) for f in f_scans) / (1024*1024)
+                if _tam > 30:
+                    st.warning(f"⚠️ {_tam:.0f} MB detectados. Pode demorar alguns minutos.")
+                elif _tam > 10:
+                    st.info(f"📦 {_tam:.0f} MB detectados. Pode levar até 1 minuto.")
+
+        st.markdown('<div class="section-label">Executar Triagem</div>', unsafe_allow_html=True)
+        _pronto_tri = bool(f_scans and f_bases)
+        if not _pronto_tri:
+            st.info("Suba os Loading Scan(s) e o Arquivo Bases para executar.")
+
+        if st.button("▶  EXECUTAR TRIAGEM", disabled=not _pronto_tri,
+                     width='stretch', key="btn_proc_tri"):
+            import io as _io, threading as _threading, traceback as _tb2
+
+            _scans_bytes = [(f.name, f.read()) for f in f_scans]
+            _bases_bytes = (f_bases.name, f_bases.read())
+
+            st.session_state["triagem_job"] = {
+                "rodando": True, "progresso": 0,
+                "log": [], "ok": None, "res": None, "err": None,
+            }
+            st.session_state.pop("triagem_res", None)
+            _tri_job_ref = st.session_state["triagem_job"]
+
+            def _worker_tri(job, scans_bytes, bases_bytes):
+                from modulos.triagem import run_analysis as _run_tri
+
+                def log_cb(msg): job["log"].append(msg)
+                def prog_cb(v):  job["progresso"] = v
+
+                scan_files = [_io.BytesIO(b) for _, b in scans_bytes]
+                for i, (name, _) in enumerate(scans_bytes):
+                    scan_files[i].name = name
+                bases_io = _io.BytesIO(bases_bytes[1])
+                bases_io.name = bases_bytes[0]
+
+                try:
+                    ok, res, err = _run_tri(scan_files, bases_io, log_cb, prog_cb)
+                    job["ok"]  = ok
+                    job["res"] = res
+                    job["err"] = err
+
+                    if ok and res:
+                        try:
+                            from database import get_supabase_admin
+                            import datetime as _dt
+                            sb = get_supabase_admin()
+                            up = sb.table("triagem_uploads").insert({
+                                "data_ref":   _dt.date.today().isoformat(),
+                                "criado_por": usuario,
+                                "total":    int(res["total"]),
+                                "qtd_ok":   int(res["ok"]),
+                                "qtd_erro": int(res["erro"]),
+                                "qtd_fora": int(res["fora"]),
+                                "taxa":     float(res["taxa"]),
+                            }).execute()
+                            upload_id = up.data[0]["id"]
+
+                            if not res["r_dc"].empty:
+                                rows = [{"upload_id": upload_id,
+                                         "ds": str(r.iloc[0]),
+                                         "total": int(r["Total Expedido"]),
+                                         "ok":    int(r["Triagem OK"]),
+                                         "nok":   int(r["Triagem NOK"]),
+                                         "fora":  int(r["Fora Abrangência"]),
+                                         "taxa":  float(r["Taxa (%)"])}
+                                        for _, r in res["r_dc"].iterrows()]
+                                sb.table("triagem_por_ds").insert(rows).execute()
+
+                            if not res["top5"].empty:
+                                rows = [{"upload_id": upload_id,
+                                         "ds": str(r["DS"]),
+                                         "total_erros": int(r["Total Erros"])}
+                                        for _, r in res["top5"].iterrows()]
+                                sb.table("triagem_top5").insert(rows).execute()
+
+                            if not res["r_sup"].empty:
+                                rows = [{"upload_id": upload_id,
+                                         "supervisor": str(r.iloc[0]),
+                                         "total": int(r["Total Expedido"]),
+                                         "ok":    int(r["Triagem OK"]),
+                                         "nok":   int(r["Triagem NOK"]),
+                                         "fora":  int(r["Fora Abrangência"]),
+                                         "taxa":  float(r["Taxa (%)"])}
+                                        for _, r in res["r_sup"].iterrows()]
+                                sb.table("triagem_por_supervisor").insert(rows).execute()
+                        except Exception as _e:
+                            job["log"].append(f"⚠️ Salvo localmente mas erro no banco: {_e}")
+                except Exception as _e:
+                    job["ok"]  = False
+                    job["err"] = _tb2.format_exc()
+                finally:
+                    job["rodando"] = False
+
+            _threading.Thread(target=_worker_tri,
+                              args=(_tri_job_ref, _scans_bytes, _bases_bytes),
+                              daemon=True).start()
+            st.rerun()
+
+        # Polling e resultado
+        _tri_job     = st.session_state.get("triagem_job", {})
+        _tri_rodando = _tri_job.get("rodando", False)
+
+        if _tri_rodando:
+            st.progress(_tri_job.get("progresso", 0) / 100,
+                        text=f"Processando… {_tri_job.get('progresso',0)}%")
+            with st.expander("📋 Log em tempo real", expanded=True):
+                st.code("\n".join(_tri_job.get("log", [])) or "Iniciando…")
+            _time.sleep(1)
+            st.rerun()
+
+        if _tri_job.get("ok") is not None and not _tri_rodando:
+            if not _tri_job["ok"]:
+                st.error("❌ Erro durante a análise:")
+                st.code(_tri_job.get("err", ""))
+            else:
+                st.success("✅ Triagem processada e salva no banco!")
+                _tri_res = _tri_job["res"]
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Total Expedido",  f"{_tri_res['total']:,}")
+                c2.metric("Triagem OK",      f"{_tri_res['ok']:,}")
+                c3.metric("Erro Expedição",  f"{_tri_res['erro']:,}")
+                c4.metric("Taxa",            f"{_tri_res['taxa']:.1f}%")
+                st.info("Vá para **🔀 Triagem DC×DS** para ver os gráficos completos.")
+
+                st.download_button(
+                    label="⬇️ Baixar Relatório de Triagem",
+                    data=_tri_res["excel_bytes"],
+                    file_name=f"Relatorio_Triagem_{_time.strftime('%Y%m%d_%H%M%S')}.xlsx"
+                              if hasattr(_time, 'strftime') else "Relatorio_Triagem.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    width='stretch', key="dl_tri_excel"
+                )
+
+            with st.expander("📋 Log de execução"):
+                st.code("\n".join(_tri_job.get("log", [])))
 
 # ══════════════════════════════════════════════════════════════
 #  PÁGINA: HISTÓRICO
