@@ -14,308 +14,318 @@ def _inject_css():
 
     st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-/* ── Reset geral ── */
 #MainMenu, footer, header {{ visibility:hidden!important }}
 [data-testid="stToolbar"] {{ display:none!important }}
 section[data-testid="stSidebar"] {{ display:none!important }}
 
-/* ── Fundo animado ── */
 .stApp {{
-    background:#060d1a!important;
-    min-height:100vh;
+    background: #f1f5f9 !important;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif !important;
 }}
+
+/* Faixa lateral esquerda decorativa */
+.stApp::before {{
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 420px; height: 100vh;
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%);
+    z-index: 0;
+    pointer-events: none;
+}}
+
+/* Padrão geométrico na faixa */
+.stApp::after {{
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 420px; height: 100vh;
+    background-image:
+        radial-gradient(circle at 80px 120px, rgba(255,255,255,0.06) 1px, transparent 1px),
+        radial-gradient(circle at 240px 280px, rgba(255,255,255,0.04) 1px, transparent 1px),
+        radial-gradient(circle at 160px 440px, rgba(255,255,255,0.06) 1px, transparent 1px),
+        radial-gradient(circle at 320px 560px, rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: auto, auto, auto, auto, 40px 40px, 40px 40px;
+    z-index: 0;
+    pointer-events: none;
+}}
+
 .block-container {{
-    padding:0!important;
-    max-width:100vw!important;
-    min-height:100vh;
+    padding: 0 !important;
+    max-width: 100vw !important;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
 }}
 
-/* ── Canvas partículas ── */
-#login-canvas {{
-    position:fixed;top:0;left:0;
-    width:100vw;height:100vh;
-    z-index:0;pointer-events:none;
-}}
-
-/* ── Centralização vertical ── */
 .main > div {{
-    display:flex!important;
-    flex-direction:column!important;
-    justify-content:center!important;
-    min-height:100vh!important;
-}}
-.block-container {{
-    padding-top:20px!important;
-    padding-bottom:20px!important;
-    max-width:100vw!important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    min-height: 100vh !important;
 }}
 
-/* ── Card: tenta múltiplos seletores ── */
+/* ── Card de login (coluna do meio) ── */
 [data-testid="column"]:nth-child(2) > div,
 [data-testid="column"]:nth-child(2) > div > div {{
-    background:#0c1a30!important;
-    border:1.5px solid rgba(37,99,235,0.35)!important;
-    border-radius:18px!important;
-    padding:32px 36px!important;
-    box-shadow:0 2px 40px rgba(0,0,0,0.8),
-               0 0 0 1px rgba(37,99,235,0.1),
-               inset 0 1px 0 rgba(255,255,255,0.04)!important;
-    position:relative!important;
-    z-index:2!important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    padding: 40px 44px !important;
+    box-shadow:
+        0 4px 6px -1px rgba(0,0,0,0.07),
+        0 20px 60px -8px rgba(0,0,0,0.12),
+        0 0 0 1px rgba(255,255,255,0.8) inset !important;
+    position: relative !important;
+    z-index: 2 !important;
 }}
 
 /* ── Título ── */
 .login-title {{
-    font-family:'Syne',sans-serif!important;
-    font-size:22px!important;font-weight:800!important;
-    color:#f1f5f9!important;letter-spacing:-.3px!important;
-    margin-bottom:2px!important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    letter-spacing: -0.4px !important;
+    margin-bottom: 2px !important;
+    line-height: 1.2 !important;
 }}
 .login-sub {{
-    font-size:12px!important;color:#475569!important;
-    margin-bottom:20px!important;line-height:1.5!important;
-    font-family:'DM Sans',sans-serif!important;
+    font-size: 13px !important;
+    color: #64748b !important;
+    margin-bottom: 24px !important;
+    line-height: 1.5 !important;
+    font-family: 'Inter', sans-serif !important;
 }}
 
 /* ── Inputs ── */
 div[data-testid="stTextInput"] input {{
-    background:#0d1f3c!important;
-    border:1.5px solid #1e3a5f!important;
-    border-radius:10px!important;
-    color:#e2e8f0!important;
-    font-family:'DM Sans',sans-serif!important;
-    font-size:14px!important;
-    padding:11px 14px!important;
-    transition:border-color .2s,box-shadow .2s!important;
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    color: #0f172a !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px !important;
+    padding: 11px 14px !important;
+    transition: border-color .2s, box-shadow .2s, background .2s !important;
 }}
 div[data-testid="stTextInput"] input:focus {{
-    border-color:#3b82f6!important;
-    box-shadow:0 0 0 3px rgba(59,130,246,.15)!important;
-    outline:none!important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1) !important;
+    background: #ffffff !important;
+    outline: none !important;
 }}
-div[data-testid="stTextInput"] input::placeholder {{ color:#334155!important }}
+div[data-testid="stTextInput"] input::placeholder {{ color: #94a3b8 !important }}
 div[data-testid="stTextInput"] label {{
-    font-size:10px!important;font-weight:600!important;
-    color:#64748b!important;font-family:'DM Mono',monospace!important;
-    letter-spacing:1px!important;text-transform:uppercase!important;
-    margin-bottom:4px!important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    font-family: 'DM Mono', monospace !important;
+    letter-spacing: 0.8px !important;
+    text-transform: uppercase !important;
+    margin-bottom: 4px !important;
 }}
 div[data-testid="stTextInput"] button {{
-    color:#475569!important;background:transparent!important;border:none!important;
+    color: #94a3b8 !important;
+    background: transparent !important;
+    border: none !important;
 }}
 div[data-testid="stTextArea"] textarea {{
-    background:#0d1f3c!important;
-    border:1.5px solid #1e3a5f!important;
-    border-radius:10px!important;color:#e2e8f0!important;
-    font-family:'DM Sans',sans-serif!important;font-size:14px!important;
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    color: #0f172a !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px !important;
 }}
 div[data-testid="stTextArea"] textarea:focus {{
-    border-color:#3b82f6!important;
-    box-shadow:0 0 0 3px rgba(59,130,246,.15)!important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1) !important;
+    background: #ffffff !important;
 }}
 div[data-testid="stTextArea"] label {{
-    font-size:10px!important;font-weight:600!important;color:#64748b!important;
-    font-family:'DM Mono',monospace!important;letter-spacing:1px!important;
-    text-transform:uppercase!important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    font-family: 'DM Mono', monospace !important;
+    letter-spacing: 0.8px !important;
+    text-transform: uppercase !important;
 }}
 
 /* ── Botão primário ── */
 div[data-testid="stButton"] > button {{
-    width:100%!important;
-    background:linear-gradient(135deg,#1d4ed8,#2563eb)!important;
-    color:#fff!important;border:none!important;
-    border-radius:10px!important;padding:12px 20px!important;
-    font-family:'Syne',sans-serif!important;font-size:14px!important;
-    font-weight:700!important;letter-spacing:.3px!important;
-    box-shadow:0 4px 20px rgba(37,99,235,.4)!important;
-    transition:transform .2s,box-shadow .2s!important;
-    cursor:pointer!important;
+    width: 100% !important;
+    background: #1d4ed8 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 12px 20px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.1px !important;
+    box-shadow: 0 2px 8px rgba(29,78,216,.3), 0 1px 2px rgba(29,78,216,.2) !important;
+    transition: all .2s ease !important;
+    cursor: pointer !important;
 }}
 div[data-testid="stButton"] > button:hover {{
-    transform:translateY(-2px)!important;
-    box-shadow:0 8px 28px rgba(37,99,235,.55)!important;
+    background: #1e40af !important;
+    box-shadow: 0 4px 16px rgba(29,78,216,.4) !important;
+    transform: translateY(-1px) !important;
 }}
 
 /* Botão secundário */
 .btn-sec div[data-testid="stButton"] > button {{
-    background:transparent!important;
-    color:#64748b!important;
-    border:1px solid #1e3a5f!important;
-    box-shadow:none!important;
-    font-size:13px!important;font-weight:500!important;
+    background: #ffffff !important;
+    color: #475569 !important;
+    border: 1.5px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
 }}
 .btn-sec div[data-testid="stButton"] > button:hover {{
-    background:#0d1f3c!important;color:#94a3b8!important;
-    transform:none!important;box-shadow:none!important;
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+    transform: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
 }}
 
 /* Botão ghost (Esqueci senha) */
 .btn-ghost div[data-testid="stButton"] > button {{
-    background:transparent!important;
-    color:#475569!important;
-    border:none!important;
-    box-shadow:none!important;
-    font-size:12px!important;
-    padding:2px 0!important;
-    width:auto!important;
-    min-height:unset!important;
-    height:auto!important;
-    font-weight:400!important;
-    text-decoration:underline!important;
-    text-underline-offset:3px!important;
-    letter-spacing:0!important;
-    line-height:1.4!important;
-    display:inline!important;
+    background: transparent !important;
+    color: #2563eb !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    width: auto !important;
+    font-weight: 500 !important;
+    text-decoration: underline !important;
 }}
 .btn-ghost div[data-testid="stButton"] > button:hover {{
-    color:#94a3b8!important;
-    transform:none!important;
-    box-shadow:none!important;
-    background:transparent!important;
-}}
-.btn-ghost div[data-testid="stButton"] {{
-    width:auto!important;
-    display:inline-block!important;
+    color: #1d4ed8 !important;
+    transform: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }}
 
 /* ── Divisor ── */
 .adiv {{
-    display:flex;align-items:center;gap:10px;
-    margin:12px 0;color:#1e3a5f;
-    font-size:10px;font-family:'DM Mono',monospace;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0;
+    color: #cbd5e1;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
 }}
-.adiv::before,.adiv::after {{
-    content:'';flex:1;height:1px;background:#1e3a5f;
+.adiv::before, .adiv::after {{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
 }}
 
 /* ── Badges / banners ── */
 .badge-pend {{
-    display:inline-flex;align-items:center;gap:6px;
-    background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);
-    color:#fbbf24;border-radius:20px;padding:5px 14px;
-    font-size:10px;font-weight:600;font-family:'DM Mono',monospace;
-    margin-bottom:16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 16px;
 }}
 .banner-i {{
-    background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.18);
-    color:#93c5fd;border-radius:10px;padding:10px 14px;
-    font-size:12px;line-height:1.55;margin-bottom:16px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.55;
+    margin-bottom: 16px;
+    font-family: 'Inter', sans-serif;
 }}
 .msg-ok {{
-    background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);
-    color:#86efac;border-radius:10px;padding:10px 14px;
-    font-size:12px;margin-bottom:14px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    margin-bottom: 14px;
+    font-family: 'Inter', sans-serif;
 }}
 .msg-err {{
-    background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
-    color:#fca5a5;border-radius:10px;padding:10px 14px;
-    font-size:12px;margin-bottom:14px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    margin-bottom: 14px;
+    font-family: 'Inter', sans-serif;
 }}
 
 /* ── Footer ── */
 .login-footer {{
-    text-align:center;font-size:10px;color:#1e3a5f;
-    font-family:'DM Mono',monospace;margin-top:16px;letter-spacing:.5px;
+    text-align: center;
+    font-size: 11px;
+    color: #94a3b8;
+    font-family: 'DM Mono', monospace;
+    margin-top: 20px;
+    letter-spacing: 0.5px;
 }}
 
-/* Remove padding lateral das colunas */
-[data-testid="column"] {{ padding:0 8px!important }}
+/* ── Alertas Streamlit ── */
+[data-testid="stAlert"] {{
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-family: 'Inter', sans-serif !important;
+}}
+
+/* ── Logo no card ── */
+.login-logo {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #f1f5f9;
+}}
+.login-logo-text {{
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.3px;
+}}
+.login-logo-badge {{
+    font-size: 9px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}}
 </style>
-
-<!-- Canvas animado -->
-<canvas id="login-canvas"></canvas>
-
-<script>
-(function(){{
-    function init(){{
-        var canvas = document.getElementById('login-canvas');
-        if(!canvas) {{ setTimeout(init,200); return; }}
-        var ctx = canvas.getContext('2d');
-        var W = canvas.width  = window.innerWidth;
-        var H = canvas.height = window.innerHeight;
-        window.addEventListener('resize', function(){{
-            W = canvas.width  = window.innerWidth;
-            H = canvas.height = window.innerHeight;
-        }});
-        var N=65, pts=[];
-        for(var i=0;i<N;i++) pts.push({{
-            x:Math.random()*W, y:Math.random()*H,
-            vx:(Math.random()-.5)*.35,
-            vy:(Math.random()-.5)*.35,
-            r:Math.random()*1.6+.4
-        }});
-        function draw(){{
-            ctx.clearRect(0,0,W,H);
-            for(var i=0;i<N;i++){{
-                for(var j=i+1;j<N;j++){{
-                    var dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
-                    var d=Math.sqrt(dx*dx+dy*dy);
-                    if(d<130){{
-                        ctx.beginPath();
-                        ctx.moveTo(pts[i].x,pts[i].y);
-                        ctx.lineTo(pts[j].x,pts[j].y);
-                        ctx.strokeStyle='rgba(37,99,235,'+(1-d/130)*.15+')';
-                        ctx.lineWidth=.5;
-                        ctx.stroke();
-                    }}
-                }}
-                ctx.beginPath();
-                ctx.arc(pts[i].x,pts[i].y,pts[i].r,0,Math.PI*2);
-                ctx.fillStyle='rgba(59,130,246,.45)';
-                ctx.fill();
-                pts[i].x+=pts[i].vx; pts[i].y+=pts[i].vy;
-                if(pts[i].x<0||pts[i].x>W) pts[i].vx*=-1;
-                if(pts[i].y<0||pts[i].y>H) pts[i].vy*=-1;
-            }}
-            requestAnimationFrame(draw);
-        }}
-        draw();
-    }}
-    init();
-
-    // Aplica estilos do card e centralização
-    function applyStyles() {{
-        // Card na coluna do meio
-        var cols = document.querySelectorAll('[data-testid="column"]');
-        if (cols.length >= 2) {{
-            var mid = cols[1];
-            mid.style.cssText += [
-                'background:#0c1a30!important',
-                'border:1.5px solid rgba(37,99,235,0.4)!important',
-                'border-radius:18px!important',
-                'padding:32px 36px!important',
-                'box-shadow:0 4px 48px rgba(0,0,0,0.85),0 0 0 1px rgba(37,99,235,0.15)!important',
-                'position:relative!important',
-                'z-index:2!important'
-            ].join(';');
-        }}
-        // Centralização vertical
-        var bc = document.querySelector('.block-container');
-        if (bc) {{
-            bc.style.cssText += [
-                'display:flex!important',
-                'flex-direction:column!important',
-                'justify-content:center!important',
-                'min-height:100vh!important',
-                'padding-top:24px!important',
-                'padding-bottom:24px!important'
-            ].join(';');
-        }}
-    }}
-
-    // Aplica imediatamente e via MutationObserver para persistir após re-renders
-    applyStyles();
-    setTimeout(applyStyles, 500);
-    setTimeout(applyStyles, 1500);
-
-    var observer = new MutationObserver(function(mutations) {{
-        applyStyles();
-    }});
-    observer.observe(document.body, {{ childList:true, subtree:true }});
-}})();
-</script>
 """, unsafe_allow_html=True)
 
 
@@ -413,12 +423,12 @@ def pagina_login():
         email = st.text_input("Email", placeholder="seu@email.com", key="l_email")
         senha = st.text_input("Senha", placeholder="••••••••", type="password", key="l_senha")
 
-        st.markdown('<div style="text-align:right;margin:-8px 0 12px">'
-                    '<div class="btn-ghost" style="display:inline-block">',
-                    unsafe_allow_html=True)
-        if st.button("Esqueci a senha", key="btn_forgot"):
-            st.session_state["auth_page"] = "forgot"; st.rerun()
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        _, cf = st.columns([1, 1])
+        with cf:
+            st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+            if st.button("Esqueci a senha", key="btn_forgot"):
+                st.session_state["auth_page"] = "forgot"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("Entrar no portal →", key="btn_login", use_container_width=True):
             if not email or not senha:
