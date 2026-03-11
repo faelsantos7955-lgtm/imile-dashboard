@@ -187,17 +187,24 @@ if pagina == "📊 Dashboard":
             st.info("Nenhum dado disponível ainda. Aguarde o administrador processar os arquivos do dia.")
         st.stop()
 
-    # ── Filtros interativos na sidebar ────────────────────────
-    with st.sidebar:
-        st.markdown('<div class="section-label" style="margin-top:0">Filtros</div>',
-                    unsafe_allow_html=True)
+    # ── Barra de filtros no topo ──────────────────────────────
+    st.markdown("""
+    <div style="background:#1e2130;border-radius:12px;padding:16px 20px 10px 20px;margin-bottom:18px;
+                border:1px solid #2d3250;">
+      <div style="color:#8b92a5;font-size:11px;font-weight:700;letter-spacing:1.5px;margin-bottom:10px">
+        🔍 FILTROS
+      </div>
+    """, unsafe_allow_html=True)
+
+    _fc1, _fc2, _fc3 = st.columns([1, 2, 3])
+    with _fc1:
         data_sel = st.selectbox(
             "📅 Data",
             options=datas,
             format_func=lambda d: pd.to_datetime(d).strftime("%d/%m/%Y"),
             index=0
         )
-
+    with _fc2:
         if is_admin:
             reg_filtro = st.multiselect(
                 "🌎 Região",
@@ -211,13 +218,15 @@ if pagina == "📊 Dashboard":
     df_cid_full = ler_cidades_dia(data_sel, bases_user)
 
     if len(df_dia_full) == 0:
+        st.markdown("</div>", unsafe_allow_html=True)
         st.warning(f"Sem dados para {pd.to_datetime(data_sel).strftime('%d/%m/%Y')}.")
         st.stop()
 
-    # ── Filtros adicionais: DS ────────────────────────────────
-    with st.sidebar:
-        todos_ds = sorted(df_dia_full["scan_station"].unique().tolist())
-        ds_sel = st.multiselect("🏭 DS", todos_ds, placeholder="Todos")
+    todos_ds = sorted(df_dia_full["scan_station"].unique().tolist())
+    with _fc3:
+        ds_sel = st.multiselect("🏭 DS", todos_ds, placeholder="Todas as bases")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     df_dia = df_dia_full[df_dia_full["scan_station"].isin(ds_sel)].copy() if ds_sel else df_dia_full.copy()
     df_cid = df_cid_full[df_cid_full["scan_station"].isin(ds_sel)].copy() if ds_sel else df_cid_full.copy()
@@ -330,8 +339,10 @@ if pagina == "📊 Dashboard":
     df_rank = df_rank.drop(columns=["Na Meta"])
 
     def _colorir_linha(row):
-        cor = "#fff1f2" if row["⚠️"] == "⚠️" else ""
-        return [f"background-color: {cor}" for _ in row]
+        if row["⚠️"] == "⚠️":
+            return ["background-color: #fff1f2; color: #111111" for _ in row]
+        else:
+            return ["color: #111111" for _ in row]
 
     st.dataframe(
         df_rank.style.apply(_colorir_linha, axis=1),
