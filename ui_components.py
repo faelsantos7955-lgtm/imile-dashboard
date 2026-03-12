@@ -1,30 +1,38 @@
 import streamlit as st
 
 
-def kpi_card(title, value):
-    st.markdown(
-        f"""
-        <div class="kpi-card">
-            <span class="kpi-title">{title}</span>
-            <span class="kpi-value">{value}</span>
+# ─────────────────────────────────────────────
+# PAGE HEADER
+# ─────────────────────────────────────────────
+def render_page_header(title, subtitle="", icon=""):
+    st.markdown(f"""
+    <div class="app-header">
+        <div class="app-header-icon">{icon}</div>
+        <div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def chart_container(title):
-    st.markdown(
-        f"""
-        <div class="chart-card">
-        <h4>{title}</h4>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+# ─────────────────────────────────────────────
+# SECTION HEADER
+# ─────────────────────────────────────────────
+def render_section_header(title, subtitle=""):
+    st.markdown(f"""
+    <div class="section-header">
+        <h3>{title}</h3>
+        <span>{subtitle}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 
+# ─────────────────────────────────────────────
+# KPI CARDS
+# ─────────────────────────────────────────────
 def render_kpi_cards(cards, delta_row=None):
+
     cols = st.columns(len(cards))
 
     for col, card in zip(cols, cards):
@@ -37,10 +45,39 @@ def render_kpi_cards(cards, delta_row=None):
 
     if delta_row:
         st.divider()
+
         cols = st.columns(len(delta_row))
+
         for col, d in zip(cols, delta_row):
             with col:
                 st.metric(
                     label=d.get("text", ""),
                     value=d.get("value", "")
                 )
+
+
+# ─────────────────────────────────────────────
+# RANKING TABLE
+# ─────────────────────────────────────────────
+def render_ranking_table(rows):
+
+    st.markdown('<div class="ranking-table">', unsafe_allow_html=True)
+
+    for r in rows:
+        cor = "#16a34a" if r.get("na_meta") else "#dc2626"
+
+        st.markdown(f"""
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            padding:10px 14px;
+            border-bottom:1px solid #e2e8f0;
+            font-size:14px
+        ">
+            <span><b>{r.get("pos")}</b> · {r.get("ds")}</span>
+            <span>{r.get("taxa_exp"):.1%}</span>
+            <span style="color:{cor}">meta {r.get("meta"):.0%}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
