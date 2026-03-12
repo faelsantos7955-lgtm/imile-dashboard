@@ -57,8 +57,31 @@ st.set_page_config(
 import os
 _css = os.path.join(os.path.dirname(os.path.abspath(__file__)), "style.css")
 if os.path.exists(_css):
-    with open(_css) as f:
+    with open(_css, encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+def _open_surface(extra_class: str = ""):
+    st.markdown(
+        f'<div class="content-surface {extra_class}">',
+        unsafe_allow_html=True,
+    )
+
+
+def _close_surface():
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_filter_intro(title: str, subtitle: str = ""):
+    st.markdown(
+        f"""
+        <div class="filter-shell">
+          <div class="filter-shell__eyebrow">{title}</div>
+          {f'<div class="filter-shell__sub">{subtitle}</div>' if subtitle else ''}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ══════════════════════════════════════════════════════════════
 #  LOGIN — Supabase Auth
@@ -154,22 +177,22 @@ with st.sidebar:
 #  PÁGINA: DASHBOARD
 # ══════════════════════════════════════════════════════════════
 if pagina == "📊 Dashboard":
-    col_hdr, col_refresh = st.columns([4, 1])
+    col_hdr, col_refresh = st.columns([5, 1.2], vertical_alignment="center")
     with col_hdr:
-        st.markdown("""
-        <div class="app-header">
-          <div class="app-header-icon">📊</div>
-          <div><h1>Dashboard</h1>
-          <p>Visão consolidada por dia · atualização automática a cada 5 min</p></div>
-        </div>""", unsafe_allow_html=True)
+        render_page_header(
+            "Dashboard",
+            "Visão consolidada por dia · atualização automática a cada 5 min",
+            "📊",
+        )
     with col_refresh:
-        st.markdown("<div style='padding-top:18px'>", unsafe_allow_html=True)
+        _open_surface("surface-compact refresh-surface")
+        st.markdown('<div class="surface-title">Atualização</div>', unsafe_allow_html=True)
         if st.button("🔄 Atualizar agora", width='stretch'):
             invalidar_cache()
             st.rerun()
         ultimo = st.session_state.get("ultimo_refresh", _dt.now().strftime("%H:%M:%S"))
         st.caption(f"Última atualização: {ultimo}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        _close_surface()
 
     # Auto-refresh a cada 5 minutos via session state
     _agora = _time.time()
@@ -192,14 +215,8 @@ if pagina == "📊 Dashboard":
         st.stop()
 
     # ── Barra de filtros no topo ──────────────────────────────
-    st.markdown("""
-    <div style="background:#1e2130;border-radius:12px;padding:16px 20px 10px 20px;margin-bottom:18px;
-                border:1px solid #2d3250;">
-      <div style="color:#8b92a5;font-size:11px;font-weight:700;letter-spacing:1.5px;margin-bottom:10px">
-        🔍 FILTROS
-      </div>
-    """, unsafe_allow_html=True)
-
+    _open_surface("filter-surface")
+    _render_filter_intro("🔍 Filtros", "Refine a visão por data, região e base")
     _fc1, _fc2, _fc3 = st.columns([1, 2, 3])
     with _fc1:
         data_sel = st.selectbox(
@@ -222,7 +239,7 @@ if pagina == "📊 Dashboard":
     df_cid_full = ler_cidades_dia(data_sel, bases_user)
 
     if len(df_dia_full) == 0:
-        st.markdown("</div>", unsafe_allow_html=True)
+        _close_surface()
         st.warning(f"Sem dados para {pd.to_datetime(data_sel).strftime('%d/%m/%Y')}.")
         st.stop()
 
@@ -230,7 +247,7 @@ if pagina == "📊 Dashboard":
     with _fc3:
         ds_sel = st.multiselect("🏭 DS", todos_ds, placeholder="Todas as bases")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    _close_surface()
 
     df_dia = df_dia_full[df_dia_full["scan_station"].isin(ds_sel)].copy() if ds_sel else df_dia_full.copy()
     df_cid = df_cid_full[df_cid_full["scan_station"].isin(ds_sel)].copy() if ds_sel else df_cid_full.copy()
@@ -299,7 +316,7 @@ if pagina == "📊 Dashboard":
             st.caption("ℹ️ Mapa de Taxa de Entrega não exibido — sem dados de entregas para este dia.")
 
     # ── Ranking DS ────────────────────────────────────────────
-    render_section_header("Ranking por Taxa de Expedição")
+    render_section_header("Ranking por Taxa de Expedição", "Bases ordenadas pela performance do dia")
     df_rank = df_dia[["scan_station","region","recebido","expedido","entregas",
                        "taxa_exp","taxa_ent","meta","atingiu_meta"]].copy()
     df_rank = df_rank.sort_values("taxa_exp", ascending=False).reset_index(drop=True)
@@ -402,12 +419,11 @@ elif pagina == "📤 Upload / Processar":
     if not is_admin:
         st.error("🔒 Acesso restrito ao administrador.")
         st.stop()
-    st.markdown("""
-    <div class="app-header">
-      <div class="app-header-icon">📤</div>
-      <div><h1>Upload e Processamento</h1>
-      <p>Central de upload · Suba os arquivos uma vez · Processe Dashboard e Reclamações</p></div>
-    </div>""", unsafe_allow_html=True)
+    render_page_header(
+        "Upload e Processamento",
+        "Central de upload · Suba os arquivos uma vez · Processe Dashboard e Reclamações",
+        "📤",
+    )
 
     _tem_sup  = tem_supervisores()
     _tem_meta = tem_metas()
@@ -415,8 +431,10 @@ elif pagina == "📤 Upload / Processar":
     # ══════════════════════════════════════════════
     #  BLOCO 1 — ARQUIVOS COMPARTILHADOS
     # ══════════════════════════════════════════════
-    st.markdown('<div class="section-label">Arquivos compartilhados · usados pelo Dashboard e Reclamações</div>',
-                unsafe_allow_html=True)
+    render_section_header(
+        "Arquivos compartilhados",
+        "Usados pelo Dashboard e pelo módulo de Reclamações",
+    )
 
     _col_sh1, _col_sh2 = st.columns(2, gap="large")
     with _col_sh1:
