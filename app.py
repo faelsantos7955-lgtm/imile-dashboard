@@ -327,27 +327,101 @@ if pagina == "📊 Dashboard":
                 unsafe_allow_html=True)
     df_rank = df_dia[["scan_station","region","recebido","expedido","entregas",
                        "taxa_exp","taxa_ent","meta","atingiu_meta"]].copy()
-    df_rank = df_rank.sort_values("taxa_exp", ascending=True).reset_index(drop=True)
-    df_rank.insert(0, "Pos.", range(1, len(df_rank)+1))
-    df_rank.insert(1, "⚠️", df_rank["atingiu_meta"].apply(lambda v: "" if v else "⚠️"))
-    df_rank.columns = ["Pos.","⚠️","DS","Região","Recebido","Expedido","Entregas",
-                        "Taxa Exp.","Taxa Ent.","Meta","Na Meta"]
-    df_rank["Taxa Exp."] = df_rank["Taxa Exp."].map("{:.1%}".format)
-    df_rank["Taxa Ent."] = df_rank["Taxa Ent."].map("{:.1%}".format)
-    df_rank["Meta"]      = df_rank["Meta"].apply(
-        lambda v: f"{float(v):.0%}" if pd.notna(v) and float(v) <= 1.0 else f"{float(v):.0f}%")
-    df_rank = df_rank.drop(columns=["Na Meta"])
+    df_rank = df_rank.sort_values("taxa_exp", ascending=False).reset_index(drop=True)
 
-    def _colorir_linha(row):
-        if row["⚠️"] == "⚠️":
-            return ["background-color: #fff1f2; color: #111111" for _ in row]
-        else:
-            return ["color: #111111" for _ in row]
+    # ── Gráfico de barras horizontais com meta line ────────────
+    import plotly.graph_objects as _go_rank
+    cores_rank = ["#16a34a" if ok else "#ef4444" for ok in df_rank["atingiu_meta"]]
+    meta_vals  = df_rank["meta"].apply(
+        lambda v: float(v) if pd.notna(v) and float(v) > 1 else float(v)*100 if pd.notna(v) else 50.0
+    ).tolist()
+    taxa_pct   = (df_rank["taxa_exp"] * 100).round(1).tolist()
 
-    st.dataframe(
-        df_rank.style.apply(_colorir_linha, axis=1),
-        width='stretch', hide_index=True
+    fig_rank = _go_rank.Figure()
+    fig_rank.add_trace(_go_rank.Bar(
+        y=df_rank["scan_station"],
+        x=taxa_pct,
+        orientation="h",
+        marker_color=cores_rank,
+        text=[f"{v:.1f}%" for v in taxa_pct],
+        textposition="outside",
+        hovertemplate="<b>%{y}</b><br>Taxa: %{x:.1f}%<extra></extra>",
+    ))
+    # Linha de meta por DS (scatter com pontos)
+    fig_rank.add_trace(_go_rank.Scatter(
+        y=df_rank["scan_station"],
+        x=meta_vals,
+        mode="markers",
+        marker=dict(symbol="line-ns", size=14, color="#0f172a", line=dict(width=2.5, color="#0f172a")),
+        name="Meta",
+        hovertemplate="Meta: %{x:.0f}%<extra></extra>",
+    ))
+    fig_rank.update_layout(
+        height=max(280, len(df_rank) * 36 + 60),
+        paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
+        font=dict(family="Inter, sans-serif", color="#1e293b", size=12),
+        xaxis=dict(title="Taxa de Expedição (%)", gridcolor="#e2e8f0",
+                   range=[0, max(taxa_pct + meta_vals) * 1.12]),
+        yaxis=dict(autorange="reversed", gridcolor="#e2e8f0"),
+        margin=dict(t=20, b=40, l=20, r=80),
+        showlegend=True,
+        legend=dict(x=1.0, y=1.0, bgcolor="rgba(0,0,0,0)"),
+        bargap=0.35,
     )
+    st.plotly_chart(fig_rank, use_container_width=True)
+
+    # ── Tabela com badges ──────────────────────────────────────
+    rows_html = ""
+    for _, r in df_rank.iterrows():
+        ok       = bool(r["atingiu_meta"])
+        badge    = ("<span style='background:#dcfce7;color:#15803d;border-radius:99px;"
+                    "padding:2px 10px;font-size:11px;font-weight:700'>✓ Meta</span>"
+                    if ok else
+                    "<span style='background:#fee2e2;color:#b91c1c;border-radius:99px;"
+                    "padding:2px 10px;font-size:11px;font-weight:700'>✗ Abaixo</span>")
+        tx_exp = r["taxa_exp"]
+        tx_ent = r["taxa_ent"]
+        meta_v = float(r["meta"]) if pd.notna(r["meta"]) else 50.0
+        if meta_v <= 1.0: meta_v *= 100
+        bar_w  = min(int(tx_exp * 100), 100)
+        bar_c  = "#16a34a" if ok else "#ef4444"
+        rows_html += f"""
+        <tr style='border-bottom:1px solid #f1f5f9'>
+          <td style='padding:10px 12px;font-weight:700;color:#64748b;width:36px'>{_ + 1}</td>
+          <td style='padding:10px 12px;font-weight:700;color:#0f172a'>{r['scan_station']}</td>
+          <td style='padding:10px 12px;color:#475569;font-size:12px'>{r['region']}</td>
+          <td style='padding:10px 12px;color:#334155'>{int(r['recebido']):,}</td>
+          <td style='padding:10px 12px;color:#334155'>{int(r['expedido']):,}</td>
+          <td style='padding:10px 12px;min-width:140px'>
+            <div style='display:flex;align-items:center;gap:8px'>
+              <div style='flex:1;background:#f1f5f9;border-radius:4px;height:8px;overflow:hidden'>
+                <div style='width:{bar_w}%;background:{bar_c};height:100%;border-radius:4px'></div>
+              </div>
+              <span style='font-weight:700;color:{bar_c};white-space:nowrap'>{tx_exp:.1%}</span>
+            </div>
+          </td>
+          <td style='padding:10px 12px;color:#475569'>{meta_v:.0f}%</td>
+          <td style='padding:10px 12px'>{badge}</td>
+        </tr>"""
+
+    st.markdown(f"""
+    <div style='overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0;background:#fff;margin-top:8px'>
+      <table style='width:100%;border-collapse:collapse;font-size:13px'>
+        <thead>
+          <tr style='background:#0f172a'>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>#</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>DS</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Região</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Recebido</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Expedido</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Taxa Exp.</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Meta</th>
+            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Status</th>
+          </tr>
+        </thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </div>""", unsafe_allow_html=True)
 
     # ── Meta dinâmica por DS (só admin) ───────────────────────
     if is_admin:

@@ -488,27 +488,147 @@ def _render_triagem_viewer():
     col3.metric("Erros",          f"{upload['qtd_erro']:,}")
     col4.metric("Taxa OK",        f"{upload['taxa']}%")
 
-    # Por DS
+    import plotly.graph_objects as go
+    import plotly.express as px
+
+    # Por DS — gráfico stacked bar OK × NOK + tabela
     r_ds = sb.table("triagem_por_ds").select("*").eq("upload_id", upload_id).execute().data
     if r_ds:
-        st.markdown("### 📊 Resultado por DS")
+        st.markdown('<div class="section-label">Resultado por DS</div>', unsafe_allow_html=True)
         df_ds = pd.DataFrame(r_ds).drop(columns=["id","upload_id"], errors="ignore")
-        df_ds.columns = [c.upper() for c in df_ds.columns]
-        st.dataframe(df_ds, width="stretch")
 
-    # Top 5
+        # Garante colunas numéricas
+        for col in ["ok","nok","total","taxa"]:
+            if col in df_ds.columns:
+                df_ds[col] = pd.to_numeric(df_ds[col], errors="coerce").fillna(0)
+
+        df_ds = df_ds.sort_values("taxa", ascending=False)
+
+        col_g1, col_g2 = st.columns([1.6, 1])
+
+        with col_g1:
+            fig_ds = go.Figure()
+            fig_ds.add_trace(go.Bar(
+                name="Triagem OK",
+                y=df_ds["ds"] if "ds" in df_ds.columns else df_ds.iloc[:,0],
+                x=df_ds["ok"],
+                orientation="h",
+                marker_color="#10b981",
+                hovertemplate="<b>%{y}</b><br>OK: %{x:,}<extra></extra>",
+            ))
+            fig_ds.add_trace(go.Bar(
+                name="Erro Expedição",
+                y=df_ds["ds"] if "ds" in df_ds.columns else df_ds.iloc[:,0],
+                x=df_ds["nok"],
+                orientation="h",
+                marker_color="#ef4444",
+                hovertemplate="<b>%{y}</b><br>NOK: %{x:,}<extra></extra>",
+            ))
+            fig_ds.update_layout(
+                barmode="stack",
+                height=max(260, len(df_ds) * 34 + 60),
+                paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
+                font=dict(family="Inter, sans-serif", color="#1e293b", size=12),
+                xaxis=dict(gridcolor="#e2e8f0"),
+                yaxis=dict(autorange="reversed"),
+                legend=dict(orientation="h", y=1.08, x=0),
+                margin=dict(t=40, b=30, l=10, r=20),
+            )
+            st.plotly_chart(fig_ds, use_container_width=True)
+
+        with col_g2:
+            # Taxa por DS — barras horizontais com cor semântica
+            cores_tri = ["#10b981" if t >= 95 else "#f59e0b" if t >= 80 else "#ef4444"
+                         for t in df_ds["taxa"]]
+            fig_taxa = go.Figure(go.Bar(
+                y=df_ds["ds"] if "ds" in df_ds.columns else df_ds.iloc[:,0],
+                x=df_ds["taxa"],
+                orientation="h",
+                marker_color=cores_tri,
+                text=[f"{v:.1f}%" for v in df_ds["taxa"]],
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>Taxa: %{x:.1f}%<extra></extra>",
+            ))
+            fig_taxa.update_layout(
+                title=dict(text="Taxa OK por DS", font=dict(size=13)),
+                height=max(260, len(df_ds) * 34 + 60),
+                paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
+                font=dict(family="Inter, sans-serif", color="#1e293b", size=12),
+                xaxis=dict(range=[0, 115], gridcolor="#e2e8f0", ticksuffix="%"),
+                yaxis=dict(autorange="reversed", gridcolor="#e2e8f0"),
+                margin=dict(t=40, b=30, l=10, r=60),
+                showlegend=False,
+            )
+            fig_taxa.add_vline(x=95, line_dash="dash", line_color="#0f172a",
+                               annotation_text="95%", annotation_position="top right")
+            st.plotly_chart(fig_taxa, use_container_width=True)
+
+        # Tabela resumo
+        df_ds_show = df_ds.copy()
+        if "taxa" in df_ds_show.columns:
+            df_ds_show["taxa"] = df_ds_show["taxa"].map("{:.1f}%".format)
+        st.dataframe(df_ds_show, use_container_width=True, hide_index=True)
+
+    # Top 5 — gráfico horizontal de barras vermelho
     top5 = sb.table("triagem_top5").select("*").eq("upload_id", upload_id).order("total_erros", desc=True).execute().data
     if top5:
-        st.markdown("### ⚠️ Top 5 DS com mais erros")
+        st.markdown('<div class="section-label">Top 5 DS com mais erros</div>', unsafe_allow_html=True)
         df_top = pd.DataFrame(top5).drop(columns=["id","upload_id"], errors="ignore")
-        st.dataframe(df_top, width="stretch")
+        if "total_erros" in df_top.columns:
+            df_top["total_erros"] = pd.to_numeric(df_top["total_erros"], errors="coerce").fillna(0)
+            df_top = df_top.sort_values("total_erros")
+
+        fig_top = px.bar(
+            df_top,
+            x="total_erros" if "total_erros" in df_top.columns else df_top.columns[-1],
+            y="ds"          if "ds"          in df_top.columns else df_top.columns[0],
+            orientation="h",
+            color="total_erros" if "total_erros" in df_top.columns else df_top.columns[-1],
+            color_continuous_scale=["#fef2f2","#ef4444","#7f1d1d"],
+            text_auto=True,
+        )
+        fig_top.update_layout(
+            height=280,
+            paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
+            font=dict(family="Inter, sans-serif", color="#1e293b", size=12),
+            coloraxis_showscale=False,
+            margin=dict(t=20, b=30, l=10, r=30),
+            showlegend=False,
+        )
+        st.plotly_chart(fig_top, use_container_width=True)
 
     # Por supervisor
     r_sup = sb.table("triagem_por_supervisor").select("*").eq("upload_id", upload_id).execute().data
     if r_sup:
-        st.markdown("### 👥 Resultado por Supervisor")
+        st.markdown('<div class="section-label">Por Supervisor</div>', unsafe_allow_html=True)
         df_sup = pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore")
-        st.dataframe(df_sup, width="stretch")
+        for col in ["ok","nok","total","taxa"]:
+            if col in df_sup.columns:
+                df_sup[col] = pd.to_numeric(df_sup[col], errors="coerce").fillna(0)
+        df_sup = df_sup.sort_values("taxa", ascending=False) if "taxa" in df_sup.columns else df_sup
+
+        sup_col = "supervisor" if "supervisor" in df_sup.columns else df_sup.columns[0]
+        fig_sup = go.Figure()
+        fig_sup.add_trace(go.Bar(
+            name="OK",  x=df_sup[sup_col], y=df_sup["ok"]  if "ok"  in df_sup.columns else [],
+            marker_color="#10b981"))
+        fig_sup.add_trace(go.Bar(
+            name="NOK", x=df_sup[sup_col], y=df_sup["nok"] if "nok" in df_sup.columns else [],
+            marker_color="#ef4444"))
+        fig_sup.update_layout(
+            barmode="group", height=300,
+            paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
+            font=dict(family="Inter, sans-serif", color="#1e293b", size=12),
+            xaxis=dict(gridcolor="#e2e8f0", tickangle=-30),
+            yaxis=dict(gridcolor="#e2e8f0"),
+            legend=dict(orientation="h", y=1.1),
+            margin=dict(t=40, b=60, l=30, r=20),
+        )
+        st.plotly_chart(fig_sup, use_container_width=True)
+
+        if "taxa" in df_sup.columns:
+            df_sup["taxa"] = df_sup["taxa"].map("{:.1f}%".format)
+        st.dataframe(df_sup, use_container_width=True, hide_index=True)
 
     # Download Excel
     if r_ds:
