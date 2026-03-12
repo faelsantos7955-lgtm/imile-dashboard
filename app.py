@@ -34,6 +34,10 @@ from database import (
 )
 from excel_export import exportar_excel_bytes
 from modulos import triagem as mod_triagem
+from ui_components import (
+    render_kpi_cards, render_ranking_table,
+    render_section_header, render_page_header,
+)
 from charts import (
     chart_volume_ds, chart_taxa_ds, chart_evolucao_diaria,
     chart_heatmap_cidades, chart_comparativo, chart_donut
@@ -247,35 +251,13 @@ if pagina == "📊 Dashboard":
     nds  = len(df_dia)
     nok  = int(df_dia["atingiu_meta"].sum())
 
-    st.markdown(f"""
-    <div class="kpi-grid">
-      <div class="kpi-card c1">
-        <div class="kpi-lbl">Recebido</div>
-        <div class="kpi-val">{rec:,}</div>
-        <div class="kpi-sub">waybills no dia</div>
-      </div>
-      <div class="kpi-card c2">
-        <div class="kpi-lbl">Em Rota</div>
-        <div class="kpi-val">{exp:,}</div>
-        <div class="kpi-sub">taxa {tx:.1%}</div>
-      </div>
-      <div class="kpi-card c3">
-        <div class="kpi-lbl">Entregas</div>
-        <div class="kpi-val">{ent:,}</div>
-        <div class="kpi-sub">{'taxa ' + f'{txe:.1%}' if ent else 'sem dados'}</div>
-      </div>
-      <div class="kpi-card c4">
-        <div class="kpi-lbl">DS na Meta</div>
-        <div class="kpi-val">{nok}</div>
-        <div class="kpi-sub">de {nds} bases</div>
-      </div>
-      <div class="kpi-card c5">
-        <div class="kpi-lbl">DS Abaixo</div>
-        <div class="kpi-val">{nds - nok}</div>
-        <div class="kpi-sub">precisam atenção</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    render_kpi_cards([
+        {"label": "Recebido",   "value": f"{rec:,}",      "sub": "waybills no dia",       "icon": "📥", "color": "blue"},
+        {"label": "Em Rota",    "value": f"{exp:,}",      "sub": f"taxa {tx:.1%}",         "icon": "🚚", "color": "orange"},
+        {"label": "Entregas",   "value": f"{ent:,}",      "sub": f"taxa {txe:.1%}" if ent else "sem dados", "icon": "✅", "color": "violet"},
+        {"label": "DS na Meta", "value": str(nok),        "sub": f"de {nds} bases",        "icon": "🎯", "color": "green"},
+        {"label": "DS Abaixo",  "value": str(nds - nok),  "sub": "precisam atenção",       "icon": "⚠️", "color": "red"},
+    ])
 
     # ── Comparativo ontem ─────────────────────────────────────
     ontem = pd.to_datetime(data_sel).date() - timedelta(days=1)
@@ -289,17 +271,11 @@ if pagina == "📊 Dashboard":
         d_rec = rec - rec_ont
         d_exp = exp - exp_ont
         d_tx  = tx  - tx_ont
-        def _delta(v, fmt=","):
-            sinal = "+" if v >= 0 else ""
-            cor   = "#16a34a" if v >= 0 else "#dc2626"
-            txt   = f"{sinal}{v:{fmt}}" if fmt == "," else f"{sinal}{v:.1%}"
-            return f"<span style='color:{cor};font-weight:700'>{txt}</span>"
-        st.markdown(f"""
-        <div class="delta-row">
-          <div class="delta-item">Recebido {_delta(d_rec)} vs ontem</div>
-          <div class="delta-item">Expedido {_delta(d_exp)} vs ontem</div>
-          <div class="delta-item">Taxa {_delta(d_tx, fmt='%')} vs ontem</div>
-        </div>""", unsafe_allow_html=True)
+        render_kpi_cards([], delta_row=[
+            {"text": "Recebido", "value": f"{'+' if d_rec>=0 else ''}{d_rec:,}",   "positive": d_rec >= 0},
+            {"text": "Expedido", "value": f"{'+' if d_exp>=0 else ''}{d_exp:,}",   "positive": d_exp >= 0},
+            {"text": "Taxa",     "value": f"{'+' if d_tx>=0 else ''}{d_tx:.1%}",   "positive": d_tx  >= 0},
+        ])
 
     # ── Gráficos ──────────────────────────────────────────────
     col_a, col_b = st.columns([1.3, 1])
@@ -323,105 +299,25 @@ if pagina == "📊 Dashboard":
             st.caption("ℹ️ Mapa de Taxa de Entrega não exibido — sem dados de entregas para este dia.")
 
     # ── Ranking DS ────────────────────────────────────────────
-    st.markdown('<div class="section-label">Ranking por Taxa de Expedição</div>',
-                unsafe_allow_html=True)
+    render_section_header("Ranking por Taxa de Expedição")
     df_rank = df_dia[["scan_station","region","recebido","expedido","entregas",
                        "taxa_exp","taxa_ent","meta","atingiu_meta"]].copy()
     df_rank = df_rank.sort_values("taxa_exp", ascending=False).reset_index(drop=True)
 
-    # ── Gráfico de barras horizontais com meta line ────────────
-    import plotly.graph_objects as _go_rank
-    cores_rank = ["#16a34a" if ok else "#ef4444" for ok in df_rank["atingiu_meta"]]
-    meta_vals  = df_rank["meta"].apply(
-        lambda v: float(v) if pd.notna(v) and float(v) > 1 else float(v)*100 if pd.notna(v) else 50.0
-    ).tolist()
-    taxa_pct   = (df_rank["taxa_exp"] * 100).round(1).tolist()
-
-    fig_rank = _go_rank.Figure()
-    fig_rank.add_trace(_go_rank.Bar(
-        y=df_rank["scan_station"],
-        x=taxa_pct,
-        orientation="h",
-        marker_color=cores_rank,
-        text=[f"{v:.1f}%" for v in taxa_pct],
-        textposition="outside",
-        hovertemplate="<b>%{y}</b><br>Taxa: %{x:.1f}%<extra></extra>",
-    ))
-    # Linha de meta por DS (scatter com pontos)
-    fig_rank.add_trace(_go_rank.Scatter(
-        y=df_rank["scan_station"],
-        x=meta_vals,
-        mode="markers",
-        marker=dict(symbol="line-ns", size=14, color="#0f172a", line=dict(width=2.5, color="#0f172a")),
-        name="Meta",
-        hovertemplate="Meta: %{x:.0f}%<extra></extra>",
-    ))
-    fig_rank.update_layout(
-        height=max(280, len(df_rank) * 36 + 60),
-        paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
-        font=dict(family="Inter, sans-serif", color="#1e293b", size=12),
-        xaxis=dict(title="Taxa de Expedição (%)", gridcolor="#e2e8f0",
-                   range=[0, max(taxa_pct + meta_vals) * 1.12]),
-        yaxis=dict(autorange="reversed", gridcolor="#e2e8f0"),
-        margin=dict(t=20, b=40, l=20, r=80),
-        showlegend=True,
-        legend=dict(x=1.0, y=1.0, bgcolor="rgba(0,0,0,0)"),
-        bargap=0.35,
-    )
-    st.plotly_chart(fig_rank, use_container_width=True)
-
-    # ── Tabela com badges ──────────────────────────────────────
-    rows_html = ""
-    for _, r in df_rank.iterrows():
-        ok       = bool(r["atingiu_meta"])
-        badge    = ("<span style='background:#dcfce7;color:#15803d;border-radius:99px;"
-                    "padding:2px 10px;font-size:11px;font-weight:700'>✓ Meta</span>"
-                    if ok else
-                    "<span style='background:#fee2e2;color:#b91c1c;border-radius:99px;"
-                    "padding:2px 10px;font-size:11px;font-weight:700'>✗ Abaixo</span>")
-        tx_exp = r["taxa_exp"]
-        tx_ent = r["taxa_ent"]
+    ranking_rows = []
+    for i, r in df_rank.iterrows():
         meta_v = float(r["meta"]) if pd.notna(r["meta"]) else 50.0
-        if meta_v <= 1.0: meta_v *= 100
-        bar_w  = min(int(tx_exp * 100), 100)
-        bar_c  = "#16a34a" if ok else "#ef4444"
-        rows_html += f"""
-        <tr style='border-bottom:1px solid #f1f5f9'>
-          <td style='padding:10px 12px;font-weight:700;color:#64748b;width:36px'>{_ + 1}</td>
-          <td style='padding:10px 12px;font-weight:700;color:#0f172a'>{r['scan_station']}</td>
-          <td style='padding:10px 12px;color:#475569;font-size:12px'>{r['region']}</td>
-          <td style='padding:10px 12px;color:#334155'>{int(r['recebido']):,}</td>
-          <td style='padding:10px 12px;color:#334155'>{int(r['expedido']):,}</td>
-          <td style='padding:10px 12px;min-width:140px'>
-            <div style='display:flex;align-items:center;gap:8px'>
-              <div style='flex:1;background:#f1f5f9;border-radius:4px;height:8px;overflow:hidden'>
-                <div style='width:{bar_w}%;background:{bar_c};height:100%;border-radius:4px'></div>
-              </div>
-              <span style='font-weight:700;color:{bar_c};white-space:nowrap'>{tx_exp:.1%}</span>
-            </div>
-          </td>
-          <td style='padding:10px 12px;color:#475569'>{meta_v:.0f}%</td>
-          <td style='padding:10px 12px'>{badge}</td>
-        </tr>"""
-
-    st.markdown(f"""
-    <div style='overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0;background:#fff;margin-top:8px'>
-      <table style='width:100%;border-collapse:collapse;font-size:13px'>
-        <thead>
-          <tr style='background:#0f172a'>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>#</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>DS</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Região</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Recebido</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Expedido</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Taxa Exp.</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Meta</th>
-            <th style='padding:10px 12px;color:#94a3b8;font-weight:600;text-align:left'>Status</th>
-          </tr>
-        </thead>
-        <tbody>{rows_html}</tbody>
-      </table>
-    </div>""", unsafe_allow_html=True)
+        ranking_rows.append({
+            "pos":      i + 1,
+            "ds":       r["scan_station"],
+            "regiao":   r["region"],
+            "recebido": int(r["recebido"]),
+            "expedido": int(r["expedido"]),
+            "taxa_exp": float(r["taxa_exp"]),
+            "meta":     meta_v,
+            "na_meta":  bool(r["atingiu_meta"]),
+        })
+    render_ranking_table(ranking_rows)
 
     # ── Meta dinâmica por DS (só admin) ───────────────────────
     if is_admin:
