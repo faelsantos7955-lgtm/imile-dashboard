@@ -1,14 +1,15 @@
-/* Fundo geral */
+/* ---------- Layout geral ---------- */
+
 .main {
-    background-color: #f6f8fb;
+    background-color: #F6F8FB;
 }
 
-/* Container principal */
 .block-container {
     padding-top: 2rem;
 }
 
-/* Sidebar */
+/* ---------- Sidebar ---------- */
+
 [data-testid="stSidebar"] {
     background: #111827;
 }
@@ -17,47 +18,111 @@
     color: white;
 }
 
-/* KPI cards */
+/* ---------- Header ---------- */
+
+.app-header {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.app-header h1 {
+    font-size:28px;
+    margin:0;
+}
+
+.app-header p {
+    color:#6B7280;
+    margin:0;
+}
+
+/* ---------- Section header ---------- */
+
+.section-header {
+    margin-top:30px;
+    margin-bottom:10px;
+}
+
+.section-header h3 {
+    margin:0;
+}
+
+.section-header span {
+    font-size:13px;
+    color:#6B7280;
+}
+
+/* ---------- KPI cards ---------- */
+
 .kpi-card {
-    background: white;
-    padding: 18px;
-    border-radius: 12px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-    display: flex;
-    flex-direction: column;
+    background:white;
+    padding:18px;
+    border-radius:12px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
 }
 
 .kpi-title {
-    font-size: 13px;
-    color: #6b7280;
+    font-size:13px;
+    color:#6B7280;
 }
 
 .kpi-value {
-    font-size: 26px;
-    font-weight: 600;
+    font-size:26px;
+    font-weight:600;
 }
 
-/* Charts container */
+/* ---------- Chart container ---------- */
+
 .chart-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
 }
 
-/* tabelas */
-.dataframe {
-    border-radius: 12px;
+/* ---------- Ranking ---------- */
+
+.ranking-table {
+    background:white;
+    border-radius:12px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
 }
 
-/* botões */
-.stButton button {
-    border-radius: 8px;
+/* ---------- Login ---------- */
+
+.login-header{
+    text-align:center;
+    margin-top:40px;
+    margin-bottom:30px;
 }
 
-/* header */
-.dashboard-title {
-    font-size: 28px;
-    font-weight: 600;
-    margin-bottom: 10px;
+.login-brand{
+    font-size:32px;
+    font-weight:700;
+    color:#1E40AF;
+}
+
+.login-divider{
+    width:140px;
+    height:3px;
+    background:#1E40AF;
+    margin:10px auto;
+    border-radius:3px;
+}
+
+.login-subtitle{
+    font-size:12px;
+    letter-spacing:2px;
+    color:#64748B;
+    text-transform:uppercase;
+}
+
+.login-card{
+    background:white;
+    padding:40px;
+    border-radius:14px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.08);
+    max-width:420px;
+    margin:auto;
 }

@@ -1,13 +1,10 @@
 import streamlit as st
 
 
-# ─────────────────────────────────────────────
-# PAGE HEADER
-# ─────────────────────────────────────────────
 def render_page_header(title, subtitle="", icon=""):
     st.markdown(f"""
     <div class="app-header">
-        <div class="app-header-icon">{icon}</div>
+        <div>{icon}</div>
         <div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
@@ -16,9 +13,6 @@ def render_page_header(title, subtitle="", icon=""):
     """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
-# SECTION HEADER
-# ─────────────────────────────────────────────
 def render_section_header(title, subtitle=""):
     st.markdown(f"""
     <div class="section-header">
@@ -28,20 +22,20 @@ def render_section_header(title, subtitle=""):
     """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
-# KPI CARDS
-# ─────────────────────────────────────────────
-def render_kpi_cards(cards, delta_row=None):
+def render_kpi_cards(cards=None, delta_row=None):
 
-    cols = st.columns(len(cards))
+    cards = cards or []
 
-    for col, card in zip(cols, cards):
-        with col:
-            st.metric(
-                label=card.get("label", ""),
-                value=card.get("value", ""),
-                delta=card.get("sub", None)
-            )
+    if cards:
+        cols = st.columns(len(cards))
+
+        for col, card in zip(cols, cards):
+            with col:
+                st.metric(
+                    label=card.get("label", ""),
+                    value=card.get("value", ""),
+                    delta=card.get("sub", None)
+                )
 
     if delta_row:
         st.divider()
@@ -56,9 +50,6 @@ def render_kpi_cards(cards, delta_row=None):
                 )
 
 
-# ─────────────────────────────────────────────
-# RANKING TABLE
-# ─────────────────────────────────────────────
 def render_ranking_table(rows):
 
     st.markdown('<div class="ranking-table">', unsafe_allow_html=True)
