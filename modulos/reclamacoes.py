@@ -482,7 +482,7 @@ def _construir_tabelas(df_base, entregas_sta, entregas_sup, top5, data_ref):
 def _render_reclamacoes_viewer():
     import streamlit as st
     import pandas as pd
-    from database import get_supabase
+    from database import get_supabase, listar_motoristas_inativos
 
     sb = get_supabase()
     uploads = sb.table("reclamacoes_uploads").select("*").order("criado_em", desc=True).limit(30).execute().data
@@ -507,41 +507,100 @@ def _render_reclamacoes_viewer():
     top5  = sb.table("reclamacoes_top5").select("*").eq("upload_id", upload_id).order("total", desc=True).execute().data
 
     if top5:
-        st.markdown("### 🏆 Top 5 Motoristas")
-        st.dataframe(pd.DataFrame(top5).drop(columns=["id","upload_id"], errors="ignore"), width="stretch")
+        st.markdown("### 🏆 Top 5 Ofensores (mais reclamações = pior)")
+        df_top = pd.DataFrame(top5).drop(columns=["id","upload_id"], errors="ignore")
+
+        # Filtra motoristas inativos em tempo real
+        inativos = listar_motoristas_inativos()
+        if inativos:
+            antes = len(df_top)
+            df_top = df_top[~df_top["motorista"].isin(inativos)].head(5)
+            removidos = antes - len(df_top)
+            if removidos > 0:
+                st.info(f"ℹ️ {removidos} motorista(s) inativo(s) filtrado(s) do ranking.")
+
+        df_top = df_top.reset_index(drop=True)
+        df_top.index = df_top.index + 1
+        df_top.index.name = "#"
+        df_top.columns = [c.replace("motorista","Motorista").replace("total","Total Reclamações") for c in df_top.columns]
+        st.dataframe(df_top, use_container_width=True)
 
     col_a, col_b = st.columns(2)
     with col_a:
         if r_sup:
             st.markdown("**Por Supervisor**")
-            st.dataframe(pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore"), width="stretch")
+            df_s = pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore")
+            df_s.columns = [c.replace("supervisor","Supervisor").replace("dia_total","Qtd Dia").replace("mes_total","Qtd Mês") for c in df_s.columns]
+            df_s = df_s.sort_values("Qtd Dia", ascending=False)
+            st.dataframe(df_s, use_container_width=True, hide_index=True)
     with col_b:
         if r_sta:
             st.markdown("**Por Station**")
-            st.dataframe(pd.DataFrame(r_sta).drop(columns=["id","upload_id"], errors="ignore"), width="stretch")
+            df_st = pd.DataFrame(r_sta).drop(columns=["id","upload_id"], errors="ignore")
+            df_st.columns = [c.replace("station","Station").replace("dia_total","Qtd Dia").replace("mes_total","Qtd Mês") for c in df_st.columns]
+            df_st = df_st.sort_values("Qtd Dia", ascending=False)
+            st.dataframe(df_st, use_container_width=True, hide_index=True)
 
     # Download Excel
-    if r_sup or r_sta:
+    if r_sup or r_sta or top5:
         import io
         from openpyxl import Workbook
+        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
         wb = Workbook()
+        borda = Border(left=Side(style="thin"), right=Side(style="thin"),
+                       top=Side(style="thin"), bottom=Side(style="thin"))
+        hdr_fill = PatternFill("solid", fgColor="1F4E79")
+        hdr_font = Font(bold=True, color="FFFFFF", name="Calibri", size=10)
+        ctr = Alignment(horizontal="center", vertical="center")
+        alt_fill = PatternFill("solid", fgColor="D9E1F2")
+
+        def _write_sheet(ws, df, title=None):
+            if title:
+                ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(df.columns))
+                t = ws.cell(1, 1, title)
+                t.font = Font(bold=True, color="FFFFFF", name="Calibri", size=13)
+                t.fill = PatternFill("solid", fgColor="2F5597")
+                t.alignment = ctr
+                start = 3
+            else:
+                start = 1
+            for ci, col in enumerate(df.columns, 1):
+                c = ws.cell(start, ci, col)
+                c.fill = hdr_fill; c.font = hdr_font; c.alignment = ctr; c.border = borda
+            for ri, row in enumerate(df.itertuples(index=False), start + 1):
+                for ci, val in enumerate(row, 1):
+                    c = ws.cell(ri, ci, val)
+                    c.border = borda; c.alignment = ctr
+                    c.font = Font(name="Calibri", size=10)
+                    if ri % 2 == 0:
+                        c.fill = alt_fill
+
         if r_sup:
             ws1 = wb.active; ws1.title = "Por Supervisor"
             df_s = pd.DataFrame(r_sup).drop(columns=["id","upload_id"], errors="ignore")
-            ws1.append(list(df_s.columns))
-            for row in df_s.itertuples(index=False): ws1.append(list(row))
+            df_s.columns = ["Supervisor","Qtd Dia","Qtd Mês"]
+            _write_sheet(ws1, df_s.sort_values("Qtd Dia", ascending=False), "Reclamações por Supervisor")
+
         if r_sta:
             ws2 = wb.create_sheet("Por Station")
             df_st = pd.DataFrame(r_sta).drop(columns=["id","upload_id"], errors="ignore")
-            ws2.append(list(df_st.columns))
-            for row in df_st.itertuples(index=False): ws2.append(list(row))
+            df_st.columns = ["Station","Qtd Dia","Qtd Mês"]
+            _write_sheet(ws2, df_st.sort_values("Qtd Dia", ascending=False), "Reclamações por Station")
+
+        if top5:
+            ws3 = wb.create_sheet("TOP Ofensores")
+            df_t = pd.DataFrame(top5).drop(columns=["id","upload_id"], errors="ignore")
+            df_t.columns = ["Motorista","Total Reclamações"]
+            _write_sheet(ws3, df_t, "TOP Motoristas Ofensores")
+
         buf = io.BytesIO(); wb.save(buf); buf.seek(0)
         st.download_button(
-            "⬇️ Baixar Excel",
+            "⬇️ Baixar Relatório de Reclamações",
             data=buf,
             file_name=f"reclamacoes_{upload['data_ref']}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            width="stretch"
+            use_container_width=True
         )
 
 def render(is_admin=True):
@@ -602,7 +661,7 @@ def _render_gestao_motoristas(st, get_status_fn, upsert_fn, listar_inativos_fn):
                 "Por":           v.get("atualizado_por") or "—",
             })
         df_status = __import__("pandas").DataFrame(rows)
-        st.dataframe(df_status, width='stretch', hide_index=True)
+        st.dataframe(df_status, use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum motorista cadastrado ainda. Adicione abaixo.")
 
@@ -622,7 +681,7 @@ def _render_gestao_motoristas(st, get_status_fn, upsert_fn, listar_inativos_fn):
             motivo_input = st.text_input("Motivo (opcional)",
                                           placeholder="Ex: Afastado / Desligado / Em investigação")
 
-        submitted = st.form_submit_button("💾 Salvar", width='stretch')
+        submitted = st.form_submit_button("💾 Salvar", use_container_width=True)
 
         if submitted:
             if not id_input.strip():
