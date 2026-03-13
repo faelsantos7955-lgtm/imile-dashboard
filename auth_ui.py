@@ -30,3 +30,8 @@ def render_auth():
     st.markdown('</div>', unsafe_allow_html=True)
 
     return False
+
+def logout():
+    import streamlit as st
+    st.session_state["auth"] = False
+    st.rerun()
