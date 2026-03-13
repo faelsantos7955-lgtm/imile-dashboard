@@ -1,128 +1,506 @@
-/* ---------- Layout geral ---------- */
+/* ══════════════════════════════════════════════════════════════
+   iMile Dashboard — Corporate Light Theme
+   Paleta: Navy sidebar + White content + Blue accents
+   ══════════════════════════════════════════════════════════════ */
+
+/* ---------- Imports ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+/* ---------- Root & Global ---------- */
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
 .main {
     background-color: #F6F8FB;
 }
 
 .block-container {
-    padding-top: 2rem;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    max-width: 1200px;
 }
 
-/* ---------- Sidebar ---------- */
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════════════════════════════ */
 
 [data-testid="stSidebar"] {
-    background: #111827;
+    background: #0f172a;
+    border-right: 1px solid #1e293b;
 }
 
 [data-testid="stSidebar"] * {
-    color: white;
+    color: #e2e8f0 !important;
 }
 
-/* ---------- Header ---------- */
+[data-testid="stSidebar"] hr {
+    border-color: #1e293b;
+}
+
+/* Sidebar buttons — navigation */
+[data-testid="stSidebar"] button[kind="secondary"] {
+    background: transparent !important;
+    border: 1px solid #1e293b !important;
+    color: #cbd5e1 !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 8px 12px !important;
+    transition: all 0.2s ease;
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+
+[data-testid="stSidebar"] button[kind="secondary"]:hover {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Active page button */
+[data-testid="stSidebar"] button[kind="primary"] {
+    background: #1e40af !important;
+    border: 1px solid #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 8px 12px !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+
+/* Logout button */
+[data-testid="stSidebar"] button[kind="secondary"]:last-of-type {
+    border-color: #7f1d1d !important;
+    color: #fca5a5 !important;
+}
+
+[data-testid="stSidebar"] button[kind="secondary"]:last-of-type:hover {
+    background: #7f1d1d !important;
+    color: #ffffff !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HEADER
+   ══════════════════════════════════════════════════════════════ */
+
+header[data-testid="stHeader"] {
+    background: rgba(246, 248, 251, 0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e2e8f0;
+}
 
 .app-header {
-    display:flex;
-    align-items:center;
-    gap:12px;
-    margin-bottom:20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 4px 0;
+}
+
+.app-header-icon {
+    font-size: 32px;
+    line-height: 1;
 }
 
 .app-header h1 {
-    font-size:28px;
-    margin:0;
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.5px;
 }
 
 .app-header p {
-    color:#6B7280;
-    margin:0;
+    font-size: 13px;
+    color: #64748b;
+    margin: 2px 0 0 0;
 }
 
-/* ---------- Section header ---------- */
+/* ══════════════════════════════════════════════════════════════
+   SECTION LABELS
+   ══════════════════════════════════════════════════════════════ */
 
 .section-header {
-    margin-top:30px;
-    margin-bottom:10px;
+    margin-top: 28px;
+    margin-bottom: 12px;
 }
 
 .section-header h3 {
-    margin:0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
 }
 
 .section-header span {
-    font-size:13px;
-    color:#6B7280;
+    font-size: 12px;
+    color: #64748b;
 }
 
-/* ---------- KPI cards ---------- */
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 24px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KPI CARDS
+   ══════════════════════════════════════════════════════════════ */
+
+[data-testid="stMetric"] {
+    background: #ffffff;
+    padding: 18px 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    font-family: 'DM Mono', monospace !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+}
+
+/* Custom KPI grid (HTML) */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+}
 
 .kpi-card {
-    background:white;
-    padding:18px;
-    border-radius:12px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+    background: #ffffff;
+    padding: 18px 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.kpi-title {
-    font-size:13px;
-    color:#6B7280;
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-.kpi-value {
-    font-size:26px;
-    font-weight:600;
+.kpi-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
 }
 
-/* ---------- Chart container ---------- */
+.kpi-val {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    font-family: 'DM Mono', monospace;
+    line-height: 1.2;
+}
+
+.kpi-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+/* Color variants for KPI cards */
+.kpi-card.c1 { border-left: 4px solid #2563eb; }
+.kpi-card.c2 { border-left: 4px solid #f97316; }
+.kpi-card.c3 { border-left: 4px solid #8b5cf6; }
+.kpi-card.c4 { border-left: 4px solid #10b981; }
+.kpi-card.c5 { border-left: 4px solid #ef4444; }
+
+/* ══════════════════════════════════════════════════════════════
+   CHARTS
+   ══════════════════════════════════════════════════════════════ */
 
 .chart-card {
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
-/* ---------- Ranking ---------- */
+/* ══════════════════════════════════════════════════════════════
+   RANKING TABLE
+   ══════════════════════════════════════════════════════════════ */
 
 .ranking-table {
-    background:white;
-    border-radius:12px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    overflow: hidden;
 }
 
-/* ---------- Login ---------- */
+/* ══════════════════════════════════════════════════════════════
+   DATAFRAMES & TABLES
+   ══════════════════════════════════════════════════════════════ */
 
-.login-header{
-    text-align:center;
-    margin-top:40px;
-    margin-bottom:30px;
+[data-testid="stDataFrame"] {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
 }
 
-.login-brand{
-    font-size:32px;
-    font-weight:700;
-    color:#1E40AF;
+/* ══════════════════════════════════════════════════════════════
+   TABS
+   ══════════════════════════════════════════════════════════════ */
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 4px;
 }
 
-.login-divider{
-    width:140px;
-    height:3px;
-    background:#1E40AF;
-    margin:10px auto;
-    border-radius:3px;
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    color: #475569;
 }
 
-.login-subtitle{
-    font-size:12px;
-    letter-spacing:2px;
-    color:#64748B;
-    text-transform:uppercase;
+.stTabs [aria-selected="true"] {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.login-card{
-    background:white;
-    padding:40px;
-    border-radius:14px;
-    box-shadow:0 10px 25px rgba(0,0,0,0.08);
-    max-width:420px;
-    margin:auto;
+/* ══════════════════════════════════════════════════════════════
+   BUTTONS (main area)
+   ══════════════════════════════════════════════════════════════ */
+
+.stButton > button[kind="primary"] {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    padding: 10px 20px !important;
+    transition: all 0.2s ease;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: #1d4ed8 !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.stButton > button[kind="secondary"] {
+    background: #ffffff !important;
+    color: #374151 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease;
+}
+
+.stButton > button[kind="secondary"]:hover {
+    background: #f9fafb !important;
+    border-color: #9ca3af !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INPUTS
+   ══════════════════════════════════════════════════════════════ */
+
+.stTextInput input, .stTextArea textarea {
+    border-radius: 8px !important;
+    border: 1px solid #d1d5db !important;
+    font-size: 14px !important;
+}
+
+.stTextInput input:focus, .stTextArea textarea:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
+}
+
+.stSelectbox [data-baseweb="select"] {
+    border-radius: 8px !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   UPLOAD LABELS & BADGES
+   ══════════════════════════════════════════════════════════════ */
+
+.upload-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 6px;
+}
+
+.upload-hint {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.badge-r {
+    display: inline-block;
+    background: #fef2f2;
+    color: #dc2626;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-left: 6px;
+}
+
+.badge-o {
+    display: inline-block;
+    background: #f0fdf4;
+    color: #16a34a;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-left: 6px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ALERTS & INFO BOXES
+   ══════════════════════════════════════════════════════════════ */
+
+.stAlert {
+    border-radius: 10px !important;
+    font-size: 13px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EXPANDERS
+   ══════════════════════════════════════════════════════════════ */
+
+.streamlit-expanderHeader {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    background: #ffffff !important;
+    border-radius: 10px !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROGRESS BAR
+   ══════════════════════════════════════════════════════════════ */
+
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, #2563eb, #60a5fa) !important;
+    border-radius: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DOWNLOAD BUTTON
+   ══════════════════════════════════════════════════════════════ */
+
+.stDownloadButton > button {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease;
+}
+
+.stDownloadButton > button:hover {
+    background: #1e293b !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DIVIDERS
+   ══════════════════════════════════════════════════════════════ */
+
+hr {
+    border-color: #e2e8f0 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LOGIN PAGE (overrides from auth_ui.py inline CSS)
+   ══════════════════════════════════════════════════════════════ */
+
+.login-header {
+    text-align: center;
+    margin-top: 40px;
+    margin-bottom: 30px;
+}
+
+.login-brand {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1e40af;
+}
+
+.login-divider {
+    width: 140px;
+    height: 3px;
+    background: #1e40af;
+    margin: 10px auto;
+    border-radius: 3px;
+}
+
+.login-subtitle {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+.login-card {
+    background: white;
+    padding: 40px;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    max-width: 420px;
+    margin: auto;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.kpi-card, [data-testid="stMetric"], .chart-card {
+    animation: fadeIn 0.4s ease-out;
 }
