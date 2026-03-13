@@ -25,15 +25,20 @@ _CINZA    = "#94a3b8"
 
 def _layout_base(fig, height=380, **kw):
     """Aplica layout corporativo padrão."""
+    # Merge defaults com overrides para evitar conflito de kwargs
+    xaxis = {**dict(gridcolor=_GRID), **(kw.pop("xaxis", {}))}
+    yaxis = {**dict(gridcolor=_GRID), **(kw.pop("yaxis", {}))}
+    legend = {**dict(bgcolor=_BG_PAPER, bordercolor=_GRID), **(kw.pop("legend", {}))}
+
     fig.update_layout(
         paper_bgcolor=_BG_PAPER,
         plot_bgcolor=_BG_PLOT,
         font=_FONT,
         height=height,
         margin=_MARGIN,
-        xaxis=dict(gridcolor=_GRID),
-        yaxis=dict(gridcolor=_GRID),
-        legend=dict(bgcolor=_BG_PAPER, bordercolor=_GRID),
+        xaxis=xaxis,
+        yaxis=yaxis,
+        legend=legend,
         **kw,
     )
     return fig
