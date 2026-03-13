@@ -525,7 +525,7 @@ def upsert_motorista_status(id_motorista: str, nome: str, ativo: bool,
             "nome_motorista": nome,
             "ativo":          ativo,
             "motivo":         motivo,
-            "atualizado_em":  "now()",
+            "atualizado_em":  datetime.utcnow().isoformat(),
             "atualizado_por": usuario,
         }, on_conflict="id_motorista").execute()
         return True, None
